@@ -9,6 +9,8 @@ civitai:1480107	loras	Yugioh_GX_Illustrious_X1_SD8.safetensors	170627948
 civitai:1736373	loras	illustrious-detailer.safetensors	228465628
 https://huggingface.co/TencentARC/t2i-adapter-lineart-sdxl-1.0/resolve/main/diffusion_pytorch_model.fp16.safetensors	controlnet	TencentARC__t2i-adapter-lineart-sdxl-10__diffusion_pytorch_model.fp16.safetensors	158060440
 https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth	upscale_models	RealESRGAN_x4plus_anime_6B.pth	17938799
+https://huggingface.co/Kim2091/UltraSharp/resolve/main/4x-UltraSharp.pth	upscale_models	4x-UltraSharp.pth	66961958
+https://huggingface.co/Kim2091/UltraSharp/resolve/main/4x-UltraSharp.safetensors	upscale_models	4x-UltraSharp.safetensors	66864028
 
 # --- Anima workflow ---
 civitai:3170772	loras	Anima_Base_ygiohdsod_ydms.safetensors	420248796
