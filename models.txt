@@ -1,0 +1,27 @@
+# Model manifest: URL <TAB> target folder (under MODELS_DIR) <TAB> exact filename <TAB> expected size in bytes
+# "civitai:<versionId>" expands to https://civitai.com/api/download/models/<versionId>?token=$CIVITAI_API_KEY
+# Sizes come from Comfy Cloud's asset listing / Hugging Face headers and are used to skip finished files.
+
+# --- Illustrious (SDXL) workflow ---
+civitai:1023901	checkpoints	illustriousXLPersonalMerge_v30Noob10based.safetensors	6938042190
+civitai:1675894	loras	Yu-Gi-Oh_Kagami_Takahiro_Style.safetensors	228463172
+civitai:1480107	loras	Yugioh_GX_Illustrious_X1_SD8.safetensors	170627948
+civitai:1736373	loras	illustrious-detailer.safetensors	228465628
+https://huggingface.co/TencentARC/t2i-adapter-lineart-sdxl-1.0/resolve/main/diffusion_pytorch_model.fp16.safetensors	controlnet	TencentARC__t2i-adapter-lineart-sdxl-10__diffusion_pytorch_model.fp16.safetensors	158060440
+https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth	upscale_models	RealESRGAN_x4plus_anime_6B.pth	17938799
+
+# --- Anima workflow ---
+civitai:3170772	loras	Anima_Base_ygiohdsod_ydms.safetensors	420248796
+civitai:3263843	checkpoints	anima_turboV11.safetensors	4182230656
+https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/diffusion_models/anima-base-v1.0.safetensors	diffusion_models	anima-base-v1.0.safetensors	4182218328
+https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/text_encoders/qwen_3_06b_base.safetensors	text_encoders	qwen_3_06b_base.safetensors	1192135096
+https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors	vae	qwen_image_vae.safetensors	253806246
+
+# --- BiRefNet_toonout for ComfyUI-RMBG (exactly the files/layout the node's own downloader would create) ---
+https://huggingface.co/1038lab/BiRefNet/resolve/main/BiRefNet_toonout.safetensors	RMBG/BiRefNet	BiRefNet_toonout.safetensors	884878824
+https://huggingface.co/1038lab/BiRefNet/resolve/main/birefnet.py	RMBG/BiRefNet	birefnet.py	92068
+https://huggingface.co/1038lab/BiRefNet/resolve/main/BiRefNet_config.py	RMBG/BiRefNet	BiRefNet_config.py	298
+https://huggingface.co/1038lab/BiRefNet/resolve/main/config.json	RMBG/BiRefNet	config.json	402
+
+# --- AnimeLineArtPreprocessor weights for comfyui_controlnet_aux (ckpts dir is symlinked here by start.sh) ---
+https://huggingface.co/lllyasviel/Annotators/resolve/main/netG.pth	controlnet_aux_ckpts/lllyasviel/Annotators	netG.pth	217631959
