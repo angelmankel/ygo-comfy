@@ -64,4 +64,4 @@ Use `cloudType: SECURE` ($0.99/h) if community has no 5090. Model download on a 
 - 2026-09-06: first pod `8g18kc9zrqtbku` (old image, terminated) ~15 min + this pod from 22:12 UTC.
   Balance $18.30 -> $17.91 by 22:35 UTC (~$0.39).
 - 2026-09-06 23:45 UTC: stop/resume onto the anime-workstation image (15 more packs, +26 GB models, ~3.5 min
-  download); volume now ~46 GB of 80. Balance $17.11 at 23:55 UTC (~$1.19 total so far).
+  download); volume now ~46 GB of 80. Balance $16.98 at 23:58 UTC (~$1.32 total so far, pod still running at $0.69/h).
