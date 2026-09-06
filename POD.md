@@ -7,15 +7,15 @@
 | Price | $0.69/h while running; volume storage is billed while the pod exists (also when stopped) |
 | Image | `ghcr.io/angelmankel/ygo-comfy:latest` |
 | Disks | 30 GB container, 80 GB volume on `/workspace` (models + input/output live there) |
-| ComfyUI endpoint (TCP, the real one) | `http://87.197.126.165:40318` - plain HTTP, basic auth user `ygo`, password = `COMFY_LOCAL_TOKEN` in ygo-art-studio/.env |
+| ComfyUI endpoint (TCP, the real one) | `http://87.197.126.165:40379` - plain HTTP, basic auth user `ygo`, password = `COMFY_LOCAL_TOKEN` in ygo-art-studio/.env |
 | RunPod HTTP proxy | `https://rq6z6e1djo9sbn-8188.proxy.runpod.net` - **currently answers 404**: with `8188/http,8188/tcp` both requested, RunPod mapped the http side to a bogus private port. It goes through Cloudflare anyway, which drops long WebSocket connections, so do not rely on it. |
-| Download log | `http://87.197.126.165:40318/ygo/logs/download.log` (same auth); `/ygo/logs/models-complete` exists once every model verified |
+| Download log | `http://87.197.126.165:40379/ygo/logs/download.log` (same auth); `/ygo/logs/models-complete` exists once every model verified |
 
 The user will front the TCP endpoint with their own Traefik at `comfyui-ygo.blueoceanswim.com`
-(forward to `http://87.197.126.165:40318`, keep the basic auth or terminate it in Traefik and inject the header).
+(forward to `http://87.197.126.165:40379`, keep the basic auth or terminate it in Traefik and inject the header).
 
-**The public IP:port changes on every resume/recreate** (it changed from :40364 to :40318 on the first
-stop/resume). Read it again with:
+**The public IP:port changes on every resume/recreate** (:40364 -> :40318 -> :40379 over the first two
+stop/resume cycles). Read it again with:
 
 ```sh
 curl -s https://api.runpod.io/graphql -H "Authorization: Bearer $RUNPOD_API_KEY" -H 'Content-Type: application/json' \
@@ -62,4 +62,6 @@ Use `cloudType: SECURE` ($0.99/h) if community has no 5090. Model download on a 
 ## Cost log
 
 - 2026-09-06: first pod `8g18kc9zrqtbku` (old image, terminated) ~15 min + this pod from 22:12 UTC.
-  Balance went $18.30 -> $17.91 by 22:35 UTC (~$0.39) with the pod still running.
+  Balance $18.30 -> $17.91 by 22:35 UTC (~$0.39).
+- 2026-09-06 23:45 UTC: stop/resume onto the anime-workstation image (15 more packs, +26 GB models, ~3.5 min
+  download); volume now ~46 GB of 80. Balance $17.11 at 23:55 UTC (~$1.19 total so far).

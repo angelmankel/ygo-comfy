@@ -48,6 +48,7 @@ echo "[start] nginx listening on 0.0.0.0:$PROXY_PORT (basic auth user '$COMFY_AU
 # ---- models (background, retried; log served at /ygo/logs/download.log through the proxy) ----
 LOG_DIR=/workspace/ygo-logs
 mkdir -p "$LOG_DIR"
+rm -f "$LOG_DIR/models-complete"   # stale marker from a previous boot must not report completion
 if [ "${SKIP_MODEL_DOWNLOAD:-0}" != 1 ]; then
   (
     for attempt in $(seq 1 "${DOWNLOAD_ATTEMPTS:-20}"); do
