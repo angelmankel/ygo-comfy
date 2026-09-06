@@ -16,6 +16,11 @@ http {
     listen 0.0.0.0:${PROXY_PORT};
     auth_basic "ygo-comfy";
     auth_basic_user_file /tmp/htpasswd;
+    location /ygo/logs/ {
+      alias /workspace/ygo-logs/;
+      autoindex on;
+      default_type text/plain;
+    }
     location / {
       proxy_pass http://127.0.0.1:${COMFY_PORT};
       proxy_http_version 1.1;

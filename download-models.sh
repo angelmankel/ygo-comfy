@@ -50,7 +50,7 @@ aria2c --input-file="$input" \
   --max-connection-per-server=8 --split=8 --min-split-size=8M \
   --continue=true --allow-overwrite=true --auto-file-renaming=false \
   --file-allocation=none --max-tries=10 --retry-wait=10 --timeout=60 \
-  --summary-interval=30 --console-log-level=warn --show-console-readout=false \
+  --summary-interval=60 --console-log-level=notice --show-console-readout=false \
   --user-agent="Mozilla/5.0 (ygo-comfy)" \
   || { echo "[models] aria2c reported failures" >&2; rm -f "$input"; exit 1; }
 rm -f "$input"

@@ -40,9 +40,23 @@ sed -e "s/\${PROXY_PORT}/$PROXY_PORT/g" -e "s/\${COMFY_PORT}/$COMFY_PORT/g" /opt
 nginx -c /tmp/nginx.conf &
 echo "[start] nginx listening on 0.0.0.0:$PROXY_PORT (basic auth user '$COMFY_AUTH_USER') -> 127.0.0.1:$COMFY_PORT"
 
-# ---- models -----------------------------------------------------------------------------
+# ---- models (background, retried; log served at /ygo/logs/download.log through the proxy) ----
+LOG_DIR=/workspace/ygo-logs
+mkdir -p "$LOG_DIR"
 if [ "${SKIP_MODEL_DOWNLOAD:-0}" != 1 ]; then
-  /opt/ygo/download-models.sh || echo "[start] WARNING: model download incomplete; ComfyUI will start anyway (rerun /opt/ygo/download-models.sh)"
+  (
+    for attempt in $(seq 1 "${DOWNLOAD_ATTEMPTS:-20}"); do
+      echo "[models] ===== attempt $attempt $(date -u +%FT%TZ) ====="
+      if /opt/ygo/download-models.sh; then
+        echo "[models] ===== complete $(date -u +%FT%TZ) ====="
+        touch "$LOG_DIR/models-complete"
+        exit 0
+      fi
+      echo "[models] attempt $attempt failed; retrying in 30s"
+      sleep 30
+    done
+    echo "[models] ===== GAVE UP after ${DOWNLOAD_ATTEMPTS:-20} attempts ====="
+  ) 2>&1 | tee -a "$LOG_DIR/download.log" &
 fi
 
 # ---- ComfyUI ----------------------------------------------------------------------------------
