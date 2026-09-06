@@ -52,8 +52,34 @@ aria2c --input-file="$input" \
   --file-allocation=none --max-tries=10 --retry-wait=10 --timeout=60 \
   --summary-interval=60 --console-log-level=notice --show-console-readout=false \
   --user-agent="Mozilla/5.0 (ygo-comfy)" \
-  || { echo "[models] aria2c reported failures" >&2; rm -f "$input"; exit 1; }
+  || echo "[models] aria2c reported failures; falling back to curl for whatever is still missing" >&2
 rm -f "$input"
+
+# curl fallback (single connection, minimal headers) for files aria2 could not fetch
+pids=()
+while IFS=$'\t' read -r url folder name size; do
+  [ -z "$url" ] && continue
+  case "$url" in \#*) continue ;; esac
+  path="$MODELS_DIR/$folder/$name"
+  if [ -f "$path" ] && [ ! -f "$path.aria2" ] && [ "$(stat -c %s "$path")" = "$size" ]; then continue; fi
+  case "$url" in
+    civitai:*) url="https://civitai.com/api/download/models/${url#civitai:}?token=${CIVITAI_API_KEY:-}" ;;
+  esac
+  rm -f "$path" "$path.aria2"
+  (
+    code=$(curl -sS -L --retry 3 --retry-delay 5 --max-time 3600 -A "Mozilla/5.0 (ygo-comfy)" \
+             -o "$path.part" -w "%{http_code}" "$url" 2>>"$MODELS_DIR/.curl-errors.log" || true)
+    if [ "$code" = 200 ] && [ "$(stat -c %s "$path.part" 2>/dev/null)" = "$size" ]; then
+      mv "$path.part" "$path"; echo "[models] curl ok  $folder/$name"
+    else
+      echo "[models] curl FAILED $folder/$name (http $code, $(stat -c %s "$path.part" 2>/dev/null || echo 0) bytes)" >&2
+      rm -f "$path.part"
+    fi
+  ) &
+  pids+=($!)
+done < "$MANIFEST"
+[ ${#pids[@]} -gt 0 ] && { echo "[models] curl fallback for ${#pids[@]} file(s)"; wait "${pids[@]}"; }
+[ -s "$MODELS_DIR/.curl-errors.log" ] && { echo "[models] curl stderr:"; tail -20 "$MODELS_DIR/.curl-errors.log"; rm -f "$MODELS_DIR/.curl-errors.log"; }
 
 # verify sizes
 bad=0
