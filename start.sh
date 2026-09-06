@@ -25,6 +25,11 @@ aux=/opt/ComfyUI/custom_nodes/comfyui_controlnet_aux
 if [ -d "$aux" ] && [ ! -L "$aux/ckpts" ]; then
   rm -rf "$aux/ckpts"; ln -s "$MODELS_DIR/controlnet_aux_ckpts" "$aux/ckpts"
 fi
+mkdir -p "$MODELS_DIR/wd14_tagger"
+wd=/opt/ComfyUI/custom_nodes/ComfyUI-WD14-Tagger
+if [ -d "$wd" ] && [ ! -L "$wd/models" ]; then
+  rm -rf "$wd/models"; ln -s "$MODELS_DIR/wd14_tagger" "$wd/models"
+fi
 mkdir -p /workspace/ComfyUI/output /workspace/ComfyUI/input
 for d in output input; do
   if [ ! -L /opt/ComfyUI/$d ]; then
@@ -62,4 +67,4 @@ fi
 # ---- ComfyUI ----------------------------------------------------------------------------------
 cd /opt/ComfyUI
 echo "[start] ComfyUI $(cat .pinned-commit 2>/dev/null) on 127.0.0.1:$COMFY_PORT"
-exec python main.py --listen 127.0.0.1 --port "$COMFY_PORT" --preview-method auto $COMFY_ARGS
+exec python main.py --listen 127.0.0.1 --port "$COMFY_PORT" --preview-method taesd $COMFY_ARGS

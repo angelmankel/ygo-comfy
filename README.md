@@ -14,56 +14,67 @@
 | `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |
 | `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
 | `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |## What is inside
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) || Component | Pin |
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) ||---|---|
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) || Base | `nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04`, Python 3.11, torch 2.8.0 + cu128 (Blackwell needs CUDA 12.8 / torch >= 2.7) |
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) || ComfyUI | `v0.34.5` (`7fd919f0caff66a52289ea5b19cb6eaca0da04ef`) - same major as Comfy Cloud (v0.34.4) |
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) || ComfyMath (`CM_FloatBinaryOperation`) | evanspearman/ComfyMath `c011772` |
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) || ComfyUI-RMBG (`BiRefNetRMBG`) | 1038lab/ComfyUI-RMBG `58f1947` |
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) || ComfyUI_LayerStyle (`LayerUtility: ColorImage`) | chflame163/ComfyUI_LayerStyle `5ba9390` |
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) || comfyui_controlnet_aux (`AnimeLineArtPreprocessor`) | Fannovel16/comfyui_controlnet_aux `59b1fc4` |
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |`ComfySwitchNode` and every other class the workflows use are ComfyUI core (`comfy_extras.nodes_logic` etc.).
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |Models (see `models.txt` for URLs, target folders and sizes):
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |- checkpoints: `illustriousXLPersonalMerge_v30Noob10based.safetensors`, `anima_turboV11.safetensors`
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |- loras: `Yu-Gi-Oh_Kagami_Takahiro_Style`, `Yugioh_GX_Illustrious_X1_SD8`, `illustrious-detailer`, `Anima_Base_ygiohdsod_ydms`
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |- diffusion_models: `anima-base-v1.0.safetensors`; text_encoders: `qwen_3_06b_base.safetensors`; vae: `qwen_image_vae.safetensors`
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |- controlnet: `TencentARC__t2i-adapter-lineart-sdxl-10__diffusion_pytorch_model.fp16.safetensors`
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |- upscale_models: `RealESRGAN_x4plus_anime_6B.pth`
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |- `RMBG/BiRefNet/BiRefNet_toonout.*` pre-fetched in the exact layout ComfyUI-RMBG expects
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |- `controlnet_aux_ckpts/lllyasviel/Annotators/netG.pth` (AnimeLineArt weights; the node's `ckpts` dir is symlinked there)
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |About 19 GB in total. Civitai files need `CIVITAI_API_KEY`.
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |
-| `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |## How it runs
+
+| Component | Pin |
+|---|---|
+| Base | `nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04`, Python 3.11, torch 2.8.0 + cu128 (Blackwell needs CUDA 12.8 / torch >= 2.7), onnxruntime-gpu |
+| ComfyUI | `v0.34.5` (`7fd919f0caff66a52289ea5b19cb6eaca0da04ef`) - same major as Comfy Cloud (v0.34.4) |
+
+### Custom node packs (all pinned to a commit in the Dockerfile)
+
+| Pack | Used for |
+|---|---|
+| ComfyUI-RMBG (1038lab) | `BiRefNetRMBG` background removal (toonout model) - the pipeline's cutout step |
+| ComfyUI_LayerStyle (chflame163) | `LayerUtility: ColorImage` and other layer/compositing helpers |
+| ComfyMath (evanspearman) | `CM_FloatBinaryOperation` etc. - arithmetic in graphs |
+| comfyui_controlnet_aux (Fannovel16) | preprocessors: AnimeLineArt, LineArt, HED, PiDiNet, DepthAnythingV2, DWPose, Canny |
+| ComfyUI-Manager (Comfy-Org) | install/update packs from the UI, missing-node detection |
+| ComfyUI-Impact-Pack + Impact-Subpack (ltdrdata) | `FaceDetailer`, `UltralyticsDetectorProvider`, SEGS, SAM-based inpaint/detail passes |
+| ComfyUI-Inspire-Pack (ltdrdata) | regional prompting, LoRA block weight, prompt utilities, KSampler variants |
+| ComfyUI_essentials (cubiq) | image/mask utilities, `ImageResize+`, `SimpleMath+`, `MaskFromColor+` |
+| ComfyUI-KJNodes (kijai) | mask/image batch helpers, `GetImageSizeAndCount`, colour-match, scheduling utilities |
+| rgthree-comfy | `Fast Groups Bypasser`, `Context`, `Power Lora Loader`, `Any Switch`, reroutes |
+| ComfyUI-Custom-Scripts (pythongosssss) | UI quality of life: autocomplete, `ShowText`, `MathExpression`, workflow images |
+| ComfyUI-WD14-Tagger (pythongosssss) | `WD14Tagger|pysssss` - danbooru tag inference for img2img / captioning |
+| ComfyUI_UltimateSDUpscale (ssitu) | `UltimateSDUpscale` tiled SD upscaling |
+| ComfyUI_IPAdapter_plus (cubiq) | `IPAdapterUnifiedLoader`, `IPAdapter`, `IPAdapterAdvanced` style/character reference |
+| comfyui_segment_anything (storyicon) | `SAMModelLoader (segment anything)`, GroundingDINO text-prompted segmentation |
+| ComfyUI_Comfyroll_CustomNodes | `CR` aspect ratio, text, image list/grid and pipe nodes |
+| was-node-suite-comfyui | large grab-bag: image filters, blending, text ops, `Image Blend by Mask` |
+| ComfyUI-Easy-Use (yolain) | `easy` loaders/samplers, prompt styler, `easy imageRemBg`, LLM-free prompt helpers |
+
+### Models (see `models.txt` for URLs, target folders and byte sizes; ~46 GB total on the volume)
+
+| Folder | Files |
+|---|---|
+| checkpoints | `illustriousXLPersonalMerge_v30Noob10based`, `anima_turboV11` |
+| loras | `Yu-Gi-Oh_Kagami_Takahiro_Style`, `Yugioh_GX_Illustrious_X1_SD8`, `illustrious-detailer`, `Anima_Base_ygiohdsod_ydms` |
+| diffusion_models / text_encoders / vae | `anima-base-v1.0`, `qwen_3_06b_base`, `qwen_image_vae` (Anima pipeline) |
+| vae_approx | `taesd_decoder`, `taesdxl_decoder`, `taesd3_decoder`, `taef1_decoder`, `lighttaew2_1` (Wan21 latent = Anima / Qwen-Image) - live previews with `--preview-method taesd` |
+| controlnet | NoobAI XL (Eugeoter, fp16): `noob-sdxl-controlnet-{canny,depth,lineart_anime,manga_line,scribble_pidinet}`; `xinsir-controlnet-union-sdxl-promax` (incl. openpose - there is no NoobAI openpose); `CN-anytest_v4-marged`; T2I adapters `TencentARC__t2i-adapter-{lineart,sketch,canny,depth-midas,openpose}-sdxl-10__...` |
+| controlnet_aux_ckpts | Annotators `netG` (anime lineart), `sk_model`/`sk_model2` (lineart), `ControlNetHED`, `table5_pidinet`; `depth_anything_v2_vitl`; DWPose `yolox_l.onnx`, `dw-ll_ucoco_384.onnx`, `dw-ll_ucoco_384_bs5.torchscript.pt` |
+| ultralytics/bbox, ultralytics/segm, sams | `face_yolov8m`, `hand_yolov8n`, `person_yolov8m-seg`, `sam_vit_b_01ec64` |
+| ipadapter, clip_vision | `ip-adapter-plus_sdxl_vit-h`, `ip-adapter_sdxl_vit-h`, `CLIP-ViT-H-14-laion2B-s32B-b79K` |
+| wd14_tagger | `wd-v1-4-moat-tagger-v2`, `wd-eva02-large-tagger-v3` (onnx + csv) |
+| upscale_models | `RealESRGAN_x4plus_anime_6B`, `4x-AnimeSharp`, `4x-UltraSharp` |
+| RMBG/BiRefNet | `BiRefNet_toonout` pre-fetched in the layout ComfyUI-RMBG expects |
+
+Civitai files need `CIVITAI_API_KEY`. Not included: `2x-AnimeJaNai` (no stable HF source).
+
+### What Comfy Cloud does NOT have (tag workflows by backend)
+
+Comfy Cloud (v0.34.4) runs the five node packs of the original image (RMBG, LayerStyle, ComfyMath,
+controlnet_aux) plus core. Everything below exists **only on this self-hosted image**, so a workflow that
+uses any of it must be tagged `backend: local`:
+
+- packs: ComfyUI-Manager, Impact-Pack/Subpack (`FaceDetailer`, `UltralyticsDetectorProvider`), Inspire-Pack,
+  ComfyUI_essentials, KJNodes, rgthree, Custom-Scripts, WD14-Tagger, UltimateSDUpscale, IPAdapter_plus,
+  segment_anything, Comfyroll, WAS suite, Easy-Use
+- models: every NoobAI / xinsir / anytest controlnet, the extra T2I adapters, IPAdapter + CLIP-ViT-H,
+  WD14 tagger weights, ultralytics detectors, SAM, `4x-AnimeSharp`, `4x-UltraSharp`, the TAESD previews
+- Comfy Cloud previews are its own; `lighttaew2_1` / `--preview-method taesd` only matter here
+
+## How it runs
 | `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
 | `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |
 | `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
@@ -77,7 +88,7 @@
 | `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
 | `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |3. Runs `download-models.sh` - every missing file from `models.txt` in parallel with `aria2c -x8 -s8 --continue`; files that already exist with the right size are skipped.
 | `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
-| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |4. Starts ComfyUI on `127.0.0.1:8189` with `--preview-method auto`.
+| `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |4. Starts ComfyUI on `127.0.0.1:8189` with `--preview-method taesd` (live previews for SD1.5/SDXL/SD3/Flux and, via `lighttaew2_1`, Anima/Qwen-Image/Wan latents).
 | `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |
 | `DOWNLOAD_ATTEMPTS` | retries of the whole manifest (default 20, 30 s apart) |
 | `SKIP_MODEL_DOWNLOAD=1` | skip the manifest step |

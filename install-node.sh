@@ -8,6 +8,7 @@ url=$1; commit=$2; name=$3
 dest=/opt/ComfyUI/custom_nodes/$name
 git clone "$url" "$dest"
 git -C "$dest" checkout --quiet "$commit"
+git -C "$dest" submodule update --init --recursive
 rm -rf "$dest/.git"
 req=$dest/requirements.txt
 if [ -f "$req" ]; then

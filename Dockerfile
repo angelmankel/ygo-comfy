@@ -38,10 +38,33 @@ RUN chmod +x /usr/local/bin/install-node \
     && install-node https://github.com/chflame163/ComfyUI_LayerStyle     5ba939099b33f998ecfbd63dcbbf089925b64a47 ComfyUI_LayerStyle \
     && install-node https://github.com/Fannovel16/comfyui_controlnet_aux 59b1fc411ede8623b2997855b8018f0b3b6cf49f comfyui_controlnet_aux
 
-# Re-assert the CUDA torch build in case a node requirement replaced it.
+# ---- Anime-workstation packs (pinned). skip_download_model stops Impact-Pack's install.py from
+#      fetching SAM into the image (models come from models.txt onto the volume instead).
+RUN touch /opt/ComfyUI/custom_nodes/skip_download_model \
+    && install-node https://github.com/Comfy-Org/ComfyUI-Manager               f82970b7cb63ad44928308f980a1d38fda103cbb ComfyUI-Manager \
+    && install-node https://github.com/ltdrdata/ComfyUI-Impact-Pack            429d0159ad429e64d2b3916e6e7be9c22d025c3c ComfyUI-Impact-Pack \
+    && install-node https://github.com/ltdrdata/ComfyUI-Impact-Subpack         50c7b71a6a224734cc9b21963c6d1926816a97f1 ComfyUI-Impact-Subpack \
+    && install-node https://github.com/ltdrdata/ComfyUI-Inspire-Pack           d23db9aa544de9a6d4c609cb7005fa9e0d42031d ComfyUI-Inspire-Pack \
+    && install-node https://github.com/cubiq/ComfyUI_essentials                9d9f4bedfc9f0321c19faf71855e228c93bd0dc9 ComfyUI_essentials \
+    && install-node https://github.com/kijai/ComfyUI-KJNodes                   da90cca857d7dd6fb615015197f99845e72c9bd3 ComfyUI-KJNodes \
+    && install-node https://github.com/rgthree/rgthree-comfy                   2c5342a8cb0eaecaabf61435a5f37dd594c510ba rgthree-comfy \
+    && install-node https://github.com/pythongosssss/ComfyUI-Custom-Scripts    609f3afaa74b2f88ef9ce8d939626065e3247469 ComfyUI-Custom-Scripts \
+    && install-node https://github.com/pythongosssss/ComfyUI-WD14-Tagger       9e0a6e700299182fc05c58b62e7ad9f72182a78b ComfyUI-WD14-Tagger \
+    && install-node https://github.com/ssitu/ComfyUI_UltimateSDUpscale         a5547db9e1d07d3318bb21e9e9c474f4c1e9c8df ComfyUI_UltimateSDUpscale \
+    && install-node https://github.com/cubiq/ComfyUI_IPAdapter_plus            a0f451a5113cf9becb0847b92884cb10cbdec0ef ComfyUI_IPAdapter_plus \
+    && install-node https://github.com/storyicon/comfyui_segment_anything      ab6395596399d5048639cdab7e44ec9fae857a93 comfyui_segment_anything \
+    && install-node https://github.com/Suzie1/ComfyUI_Comfyroll_CustomNodes    d78b780ae43fcf8c6b7c6505e6ffb4584281ceca ComfyUI_Comfyroll_CustomNodes \
+    && install-node https://github.com/WASasquatch/was-node-suite-comfyui      c5ff955029829755807a52ac5bc5ebc8410cde6c was-node-suite-comfyui \
+    && install-node https://github.com/yolain/ComfyUI-Easy-Use                 271685698b0935c5b0ecca86a58c3817931cd205 ComfyUI-Easy-Use
+
+# Re-assert the CUDA torch build and the GPU onnxruntime (several packs pull the CPU 'onnxruntime',
+# which shadows onnxruntime-gpu's providers), then prove CUDA 12.8 + the GPU provider are what's left.
 RUN pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 \
         --index-url https://download.pytorch.org/whl/cu128 \
-    && python -c "import torch, sys; print('torch', torch.__version__, 'cuda', torch.version.cuda); sys.exit(0 if torch.version.cuda and torch.version.cuda.startswith('12.8') else 1)"
+    && pip uninstall -y onnxruntime onnxruntime-gpu || true \
+    && pip install "onnxruntime-gpu>=1.19" \
+    && python -c "import torch, sys; print('torch', torch.__version__, 'cuda', torch.version.cuda); sys.exit(0 if torch.version.cuda and torch.version.cuda.startswith('12.8') else 1)" \
+    && python -c "import onnxruntime as ort, sys; p=ort.get_available_providers(); print('ort', ort.__version__, p); sys.exit(0 if 'CUDAExecutionProvider' in p else 1)"
 
 # ---- Runtime files --------------------------------------------------------------
 COPY models.txt download-models.sh start.sh nginx.conf.template /opt/ygo/
