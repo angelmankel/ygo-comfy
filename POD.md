@@ -65,3 +65,13 @@ Use `cloudType: SECURE` ($0.99/h) if community has no 5090. Model download on a 
   Balance $18.30 -> $17.91 by 22:35 UTC (~$0.39).
 - 2026-09-06 23:45 UTC: stop/resume onto the anime-workstation image (15 more packs, +26 GB models, ~3.5 min
   download); volume now ~46 GB of 80. Balance $16.98 at 23:58 UTC (~$1.32 total so far, pod still running at $0.69/h).
+
+
+## 2026-09-07: A100 pod (GPU swap for the Anima test)
+
+- The RTX 5090 pod `rq6z6e1djo9sbn` is STOPPED (volume kept; resume with `podResume` above, then re-read its port).
+- New pod `4fgj4rhklpi255`: **NVIDIA A100 80GB PCIe, SECURE cloud, $1.59/h** (community had none at the time), same image,
+  80 GB volume, `8188/tcp` → `http://185.216.21.214:27971` (basic auth unchanged). Donny's Traefik (comfyui-ygo.blueoceanswim.com)
+  was repointed at it; `.env` uses the domain.
+- Stop / resume / terminate: same mutations as above with `podId:"4fgj4rhklpi255"`. Two pods stopped still bill their volumes.
+- .env rule: when the address changes, COMMENT the domain line and add the ip:port below it — never delete the domain line.
