@@ -12,9 +12,13 @@ export interface SidePanelProps {
   isDesktop: boolean;
   /** Panel width on desktop, in px. The closed-state transform slides this far off-screen. */
   width: number;
-  /** Optional offset on mobile — e.g. so the left panel sits past a 52px side rail. */
+  /**
+   * Px the always-visible left rail reserves on mobile. The left drawer starts past it;
+   * the right drawer keeps its edge but gives up the same width, so it stops at the rail
+   * instead of sliding underneath it and hiding its own header controls.
+   */
   mobileLeftOffset?: number;
-  /** Optional override for the mobile width. Defaults to `min(88vw, 420px)`. */
+  /** Optional override for the mobile width. Defaults to the viewport minus `mobileLeftOffset`, capped at 420px. */
   mobileWidth?: string;
   /** Extra classes for the outer <aside>. */
   className?: string;
@@ -48,7 +52,7 @@ export function SidePanel({
   isDesktop,
   width,
   mobileLeftOffset = 0,
-  mobileWidth = 'min(88vw, 420px)',
+  mobileWidth,
   className,
   header,
   children,
@@ -68,20 +72,35 @@ export function SidePanel({
     zIndex: 30,
     transform: open ? 'translateX(0)' : desktopClosed,
     transition: 'transform 200ms ease-out',
+    // A closed panel overshoots the edge, but the left one is offset past the rail, so its
+    // last 52px stay under it — close enough to the surface to win a hit test and eat taps
+    // aimed at the rail. `inert` stops interaction; this stops hit-testing as well.
+    pointerEvents: open ? undefined : 'none',
   };
 
   // Mobile: edge-flush drawer (the conventional pattern). No gutter so the
   // drawer reads as overlay chrome, not a card.
+  //
+  // The width subtracts the rail it is offset past. `min(88vw, 420px)` plus a
+  // 52px offset came to 415px on a 412px phone, so the drawer hung off the far
+  // edge and its own header controls sat outside the viewport.
   const mobileClosed = side === 'left' ? 'translateX(-100%)' : 'translateX(100%)';
   const mobileStyle: CSSProperties = {
     position: 'fixed',
     top: 0,
     bottom: 0,
     [side]: side === 'left' ? mobileLeftOffset : 0,
-    width: mobileWidth,
+    // Both sides subtract the rail. The left drawer is pushed past it; the right drawer is
+    // shortened by it. Letting the right one run the full width put its collapse chevron and
+    // the start of its header under the rail, where they could not be read or tapped.
+    width: mobileWidth ?? `min(calc(100vw - ${mobileLeftOffset}px), 420px)`,
     zIndex: 30,
     transform: open ? 'translateX(0)' : mobileClosed,
     transition: 'transform 200ms ease-out',
+    // A closed panel overshoots the edge, but the left one is offset past the rail, so its
+    // last 52px stay under it — close enough to the surface to win a hit test and eat taps
+    // aimed at the rail. `inert` stops interaction; this stops hit-testing as well.
+    pointerEvents: open ? undefined : 'none',
   };
 
   // Desktop: detached card → full border + rounded corners + matches TopNav.
@@ -92,6 +111,12 @@ export function SidePanel({
   return (
     <aside
       style={isDesktop ? desktopStyle : mobileStyle}
+      aria-hidden={!open}
+      // A closed panel is translated off-screen but still rendered. Without this it keeps
+      // its tab stops and its header's collapse button — which reads as a second "Expand
+      // left panel" control that does nothing, sitting under the rail where the real one
+      // should be. `inert` takes the whole subtree out of hit-testing and focus at once.
+      {...(!open ? { inert: '' as unknown as boolean } : {})}
       className={cn(
         'flex flex-col bg-bg-panel/85 backdrop-blur-md',
         isDesktop ? desktopShell : mobileShell,

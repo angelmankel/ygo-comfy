@@ -19,7 +19,7 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const BASE = [
-  'inline-flex h-9 w-9 items-center justify-center rounded-lg text-[14px] outline-none transition-colors',
+  'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[14px] outline-none transition-colors',
   'focus-visible:border-accent',
 ];
 

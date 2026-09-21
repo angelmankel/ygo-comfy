@@ -64,7 +64,7 @@ export function CanvasTopNav({ isDesktop, leftOpen, rightOpen, setLeftOpen, setR
           {!rightOpen && (
             <SidePanelTrigger side="right" open={rightOpen} onClick={() => setRightOpen(true)} />
           )}
-          {!leftOpen && !rightOpen && (
+          {isDesktop && !leftOpen && !rightOpen && (
             <BothPanelsTrigger
               leftOpen={leftOpen}
               rightOpen={rightOpen}

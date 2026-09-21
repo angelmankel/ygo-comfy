@@ -37,7 +37,6 @@ export default function App() {
   useThemeEffect();
 
   const { mainView, viewKey, isSwitching } = useViewSwitching();
-  const isCanvasOrGenerate = mainView === 'generate' || mainView === 'canvas';
 
   // Insets for the TopNav so it always sits in the visible area between the
   // two floating side panels, never beneath an open overlay. The +8 accounts
@@ -83,14 +82,12 @@ export default function App() {
             </div>
           </main>
 
-          {/* Mobile backdrop */}
-          {isCanvasOrGenerate && !isDesktop && (leftOpen || rightOpen) && (
-            <div
-              className="fixed inset-0 z-20 bg-black/55"
-              onClick={() => { setLeftOpen(false); setRightOpen(false); }}
-              aria-hidden
-            />
-          )}
+          {/* The mobile backdrop used to live here, outside <main>. It could never work from
+              here: the panels render inside MainView's `animate-view-in` wrapper, whose
+              animation creates a stacking context, so their z-30 is trapped inside it and a
+              z-20 sibling of <main> paints above the whole subtree. The backdrop covered the
+              open drawer, and every tap on a control closed the drawer instead. It now lives
+              in AppSidePanels, next to the panels it belongs to, where the z-order is real. */}
         </div>
         <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
         <ErrorBoundary label="Model metadata">

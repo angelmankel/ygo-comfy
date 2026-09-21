@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { cn } from '@/lib/cn';
+import { useIsDesktop } from '@/hooks/useIsDesktop';
 
 export interface TopNavProps {
   /** Slot rendered flush-left. */
@@ -27,6 +28,18 @@ export interface TopNavProps {
  * The shell is a single blurred glass pill that hugs its contents. Slots are
  * `pointer-events-auto` so clicks land on the buttons, while the wrapper is
  * `pointer-events-none` so empty gutters don't swallow canvas gestures.
+ *
+ * Two layouts, because the two jobs conflict:
+ *
+ *  - Desktop uses three absolutely-positioned tracks, so the centre cluster
+ *    stays exactly centred however wide the other two grow.
+ *  - Mobile uses ordinary flow. Absolute tracks cannot see each other, so on a
+ *    narrow screen the end cluster simply paints on top of the start cluster and
+ *    wins every tap. On a 412px phone the generate bar's end cluster measured
+ *    409px wide starting at x=-14, which buried the one control that opens the
+ *    prompt panel — the whole app was unreachable behind it. In flow the two
+ *    clusters cannot occupy the same pixels, and the actions scroll sideways
+ *    instead of covering anything.
  */
 export function TopNav({
   left,
@@ -37,6 +50,7 @@ export function TopNav({
   insetTransition,
   className,
 }: TopNavProps) {
+  const isDesktop = useIsDesktop();
   const wrapperStyle: CSSProperties = {
     left: leftInset,
     right: rightInset,
@@ -56,11 +70,25 @@ export function TopNav({
           className,
         )}
       >
-        <NavCluster align="start">{left}</NavCluster>
-        <NavCluster align="center" className="hidden sm:inline-flex">
-          {center}
-        </NavCluster>
-        <NavCluster align="end">{right}</NavCluster>
+        {isDesktop ? (
+          <>
+            <NavCluster align="start">{left}</NavCluster>
+            <NavCluster align="center" className="hidden sm:inline-flex">
+              {center}
+            </NavCluster>
+            <NavCluster align="end">{right}</NavCluster>
+          </>
+        ) : (
+          <div className="flex w-full min-w-0 items-center gap-1.5">
+            {/* The panel triggers are the way back into the app, so they never
+                shrink and never scroll away. Only the action strip between them
+                gives up space. */}
+            <div className="flex shrink-0 items-center gap-1.5">{left}</div>
+            <div className="scroll-x-thin flex min-w-0 flex-1 items-center justify-end gap-1.5 overflow-x-auto">
+              {right}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

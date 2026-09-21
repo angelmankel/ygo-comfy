@@ -69,6 +69,12 @@ body {
 .scroll-y::-webkit-scrollbar-thumb { background: #2A3344; border-radius: 3px; }
 .scroll-y::-webkit-scrollbar-track { background: transparent; }
 
+/* Horizontal companion to .scroll-y, for strips of controls that must stay
+   reachable on a narrow screen. The bar itself is hidden: a 48px-tall toolbar
+   has no room for a scrollbar, and the row is short enough to swipe. */
+.scroll-x-thin { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -ms-overflow-style: none; }
+.scroll-x-thin::-webkit-scrollbar { display: none; }
+
 /* Tracking helpers (uppercase section labels) */
 .tracking-section { letter-spacing: 0.08em; }
 .tracking-tag     { letter-spacing: 0.04em; }
