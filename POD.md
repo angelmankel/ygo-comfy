@@ -7,7 +7,8 @@
 | Endpoint | `http://38.80.152.146:30246` — point Traefik at this for `https://comfyui-ygo.blueoceanswim.com/` |
 | Volume | **network** volume on `/workspace`; the manifest's 58 files verified 2026-09-21 |
 | Auth | user `ygo`, password = `COMFY_LOCAL_TOKEN` (reused from the previous pod) |
-| App | `~/Github/ygo-comfy/app` pushed 2026-09-21; `/`, `/lab/`, `/ygo/app/` and `/ygo/app/lab/` all answer 200 with correct MIME types |
+| App | `~/Github/ygo-comfy/app` pushed 2026-09-21 |
+| ImageLab | **`/ygo/app/lab/`** — verified rendering and Connected. `/lab/` is a white screen here: this pod pulled its image four minutes before 23cc450 landed, so its nginx still has no `mime.types` and serves modules as `text/plain`. A resume onto `:latest` fixes that path. |
 
 Do not ask a Blackwell pod for `volumeInGb` — it has no local disk and the deploy is refused. A
 network volume is the only way, and it is also why a resume is cheap: the 58 models stay put.

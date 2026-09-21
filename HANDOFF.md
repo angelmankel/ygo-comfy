@@ -12,6 +12,8 @@
 - `2wkq26rkp2mgbe` — **B200, 180 GB, US-CA-2, $6.79/h**, on a **network volume** at `/workspace`.
 - Auth: user `ygo`, password = `COMFY_LOCAL_TOKEN` in `ygo-art-studio/.env`. Traefik fronts it at
   `https://comfyui-ygo.blueoceanswim.com/` — the ip:port changes on every resume, so re-read it and repoint.
+- **Open ImageLab at `/ygo/app/lab/`.** `/lab/` (nginx) is a white screen on any pod whose image predates
+  23cc450 — it serves modules as text/plain and the browser refuses them. A resume onto `:latest` fixes it.
 - URLs: `/` ComfyUI · `/lab/` ImageLab (nginx) · `/ygo/app/lab/` ImageLab (python, right MIME types) ·
   `/ygo/app/` Civitai browser + installer · `/ygo/logs/download.log` · `/ygo/logs/models-complete` marker.
 - RunPod template `ygo-comfy` (id `efow3nf6e7`) deploys it from the UI. Storage must be added in the UI:

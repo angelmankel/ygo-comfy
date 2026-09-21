@@ -92,9 +92,27 @@ export const RESOLUTION_PRESETS: Array<[number, number]> = [
   [512, 512],
 ];
 
-// Use the Traefik-fronted hostname so HTTPS pages can reach ComfyUI without
-// triggering mixed content. See ~/Docker/infra/traefik/data/config.yml.
-export const DEFAULT_COMFY_HOST = 'comfy.dev.blueoceanswim.com';
+// Where ImageLab is served from decides which ComfyUI it talks to.
+//
+// The production build ships inside the pod image and nginx serves it next to ComfyUI on the same
+// origin (`/lab/`, or `/ygo/app/lab/`). That origin IS a ComfyUI server, so it is the one to use:
+// same-origin means no CORS, no mixed content, and the basic auth the browser already holds is
+// sent with every fetch and with the websocket. Hard-coding a hostname here instead is what made a
+// pod-served ImageLab sit there saying "Offline — no servers reachable" while ComfyUI answered on
+// the very origin the page came from.
+//
+// `npm run dev` is the other case: the page is on Vite's own port, which is not ComfyUI, so fall
+// back to the two LAN boxes. See ~/Docker/infra/traefik/data/config.yml for their Traefik entries.
+const LAN_COMFY_HOST = 'comfy.dev.blueoceanswim.com';
+
+/** The origin this page was served from, when that origin can be a ComfyUI. Empty during dev and SSR. */
+export function servedFromHost(): string {
+  if (import.meta.env.DEV) return '';
+  if (typeof location === 'undefined' || !location.host) return '';
+  return location.host;
+}
+
+export const DEFAULT_COMFY_HOST = servedFromHost() || LAN_COMFY_HOST;
 
 // ---------------------------------------------------------------------------
 // Servers
@@ -114,11 +132,13 @@ export type Server = {
   enabled?: boolean;
 };
 
-/** The two ComfyUI boxes on the LAN, seeded into a fresh install. */
-export const SEED_SERVERS: Array<Omit<Server, 'id'>> = [
-  { name: 'Server 1', host: 'comfy.dev.blueoceanswim.com' },
-  { name: 'Server 2', host: 'comfy2.dev.blueoceanswim.com' },
-];
+/** What a fresh install starts with: the pod it is served from, or the two LAN boxes during dev. */
+export const SEED_SERVERS: Array<Omit<Server, 'id'>> = servedFromHost()
+  ? [{ name: 'This pod', host: servedFromHost() }]
+  : [
+      { name: 'Server 1', host: 'comfy.dev.blueoceanswim.com' },
+      { name: 'Server 2', host: 'comfy2.dev.blueoceanswim.com' },
+    ];
 
 function normalizeServers(raw: unknown): Server[] {
   if (!Array.isArray(raw)) return [];
@@ -132,18 +152,44 @@ function normalizeServers(raw: unknown): Server[] {
     }));
 }
 
+/** The name given to the pod the page is served from, so a stale one can be recognised and replaced. */
+const THIS_POD = 'This pod';
+
+/**
+ * Keep the served-from origin in the list, exactly once and enabled.
+ *
+ * A pod's public ip:port changes on every resume, so a saved list goes stale the moment the pod
+ * comes back — and a returning user never hits the fresh-install seed, because their localStorage
+ * is already populated. Rewriting the entry on every boot is what makes a resumed pod work without
+ * anyone editing a server by hand.
+ */
+function withServedFrom(servers: Server[]): Server[] {
+  const host = servedFromHost();
+  if (!host) return servers;
+  const keep = servers.filter(s => s.name !== THIS_POD && s.host !== host);
+  const existing = servers.find(s => s.host === host);
+  return [{ id: existing?.id || uid(), name: THIS_POD, host, enabled: true }, ...keep];
+}
+
 /**
  * Bootstrap the server list. Handles three cases:
  *  1. Already migrated — `SERVERS_KEY` is present.
  *  2. Upgrading from the per-workspace era — read `LEGACY_WORKSPACES_KEY` and
  *     migrate that workspace's params/snippets/history into the new global keys.
- *  3. Fresh install — seed the two known LAN servers.
+ *  3. Fresh install — seed the pod this page came from, or the two LAN boxes during dev.
+ *
+ * In every case the origin the page was served from is folded back in, because that origin is a
+ * ComfyUI server whenever ImageLab is being served by one.
  */
 function initServers(): Server[] {
   // 1. Already on the new scheme.
   try {
     const existing = normalizeServers(JSON.parse(localStorage.getItem(SERVERS_KEY) || 'null'));
-    if (existing.length) return existing;
+    if (existing.length) {
+      const merged = withServedFrom(existing);
+      if (JSON.stringify(merged) !== JSON.stringify(existing)) persistServers(merged);
+      return merged;
+    }
   } catch { /* fall through */ }
 
   // 2. Migrate from the legacy per-workspace scheme, if present.
@@ -154,8 +200,9 @@ function initServers(): Server[] {
 
   if (legacy.length) {
     migrateLegacyData(legacy);
-    persistServers(legacy);
-    return legacy;
+    const merged = withServedFrom(legacy);
+    persistServers(merged);
+    return merged;
   }
 
   // 3. Fresh install.
