@@ -2,7 +2,6 @@ import { useStore } from '@/lib/store';
 import { Field } from '@/components/ui/Field';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { Select } from '@/components/ui/Select';
-import { Slider } from '@/components/ui/Slider';
 import { Switch } from '@/components/ui/Switch';
 import { RESOLUTION_PRESETS, uid } from '@/lib/storage';
 import { scaleForLongestEdge } from '@/features/inputImage/imageOps';
@@ -10,17 +9,18 @@ import { useResourceAvailability, availabilityHint } from '@/hooks/useResourceAv
 import { cn } from '@/lib/cn';
 import { ResetIcon, DiceIcon, CloseIcon } from '@/components/ui/icons';
 import type { Pass } from '@/lib/types';
+import { ControlSection } from './ControlSection';
+import { ParamRow } from './ParamRow';
+import { useControlFilter } from './ControlFilter';
 
-function SectionLabel({ label, right }: { label: string; right?: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2 px-1">
-      <span className="text-[10px] font-semibold uppercase tracking-section text-fg-dim">{label}</span>
-      {right && <div className="ml-auto">{right}</div>}
-    </div>
-  );
-}
+/**
+ * Defaults a reset goes back to. These are the app's own starting values, not the model's — the
+ * point of the reset arrow is "put it back how it was before I started fiddling".
+ */
+const DEFAULTS = { steps: 20, cfg: 8, denoise: 1, batch: 1, passScale: 1.5, passSteps: 12, passCfg: 8, passDenoise: 0.5 };
 
-function SliderRow({ label, value, onChange, min, max, step = 1, format }: {
+
+function SliderRow({ label, value, onChange, min, max, step = 1, format, defaultValue, hint, disabled }: {
   label: string;
   value: number;
   onChange: (v: number) => void;
@@ -28,15 +28,19 @@ function SliderRow({ label, value, onChange, min, max, step = 1, format }: {
   max: number;
   step?: number;
   format?: (v: number) => string;
+  defaultValue?: number;
+  hint?: React.ReactNode;
+  disabled?: boolean;
 }) {
-  const formatted = format ? format(value) : String(value);
+  // Kept as the name every section already calls, now drawn by ParamRow: stacked, typeable,
+  // nudgeable, resettable. Changing the primitive rather than each call site is what stops the
+  // panel drifting into two styles of row.
   return (
-    <Field label={label}>
-      <Slider value={value} onValueChange={onChange} min={min} max={max} step={step} ariaLabel={label} />
-      <span className="w-14 shrink-0 text-right text-[12px] font-medium tabular-nums text-fg-secondary">
-        {formatted}
-      </span>
-    </Field>
+    <ParamRow
+      label={label} value={value} onChange={onChange}
+      min={min} max={max} step={step} format={format}
+      defaultValue={defaultValue} hint={hint} disabled={disabled}
+    />
   );
 }
 
@@ -56,9 +60,16 @@ export function SamplingSection() {
     ? server.samplers : [workflow.sampler, ...server.samplers];
   const schedulerOpts = server.schedulers.includes(workflow.scheduler)
     ? server.schedulers : [workflow.scheduler, ...server.schedulers];
+  const f = useControlFilter();
+  const show = f.matches('sampling', 'sampler', 'scheduler', workflow.sampler, workflow.scheduler);
+  if (!show) return null;
   return (
-    <section className="flex flex-col gap-2">
-      <SectionLabel label="SAMPLING" />
+    <ControlSection
+      id="sampling"
+      title="Sampling"
+      summary={`${workflow.sampler} · ${workflow.scheduler}`}
+      forceOpen={f.active && show}
+    >
       <Field label="Sampler">
         <Select
           value={workflow.sampler}
@@ -83,49 +94,61 @@ export function SamplingSection() {
           }}
         />
       </Field>
-    </section>
+    </ControlSection>
   );
 }
 
 export function GenerationSection({ showDenoise = true }: { showDenoise?: boolean } = {}) {
   const workflow = useStore(s => s.workflow);
   const setWorkflow = useStore(s => s.setWorkflow);
+  const f = useControlFilter();
+  if (!f.matches('generation', 'steps', 'cfg', 'guidance', 'seed', 'random', 'denoise', 'strength')) return null;
   return (
-    <section className="flex flex-col gap-2">
-      <SectionLabel label="GENERATION" />
-      <SliderRow label="Steps" value={workflow.steps} onChange={(v) => setWorkflow({ steps: v })} min={1} max={200} />
-      <SliderRow label="CFG"   value={workflow.cfg}   onChange={(v) => setWorkflow({ cfg: v })}   min={0} max={30} step={0.1} format={(v) => v.toFixed(1)} />
-      <Field label="Seed">
-        <NumberInput value={workflow.seed} onValueChange={(v) => setWorkflow({ seed: v })} step={1} align="right" ariaLabel="Seed" />
-        <button
-          type="button"
-          title="Randomize seed now"
-          aria-label="Randomize seed now"
-          onClick={() => setWorkflow({ seed: Math.floor(Math.random() * 0xFFFFFFFF) })}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border-default bg-bg-elev text-fg-tertiary hover:border-border-strong hover:text-fg-secondary"
-        >
-          <ResetIcon size={16} />
-        </button>
-        <button
-          type="button"
-          title={workflow.randomizeSeed ? 'Auto-randomize seed on every generate (on)' : 'Auto-randomize seed on every generate (off)'}
-          aria-label="Auto-randomize seed on every generate"
-          aria-pressed={workflow.randomizeSeed}
-          onClick={() => setWorkflow({ randomizeSeed: !workflow.randomizeSeed })}
-          className={cn(
-            'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-colors',
-            workflow.randomizeSeed
-              ? 'border-accent bg-accent-soft text-accent-fg'
-              : 'border-border-default bg-bg-elev text-fg-tertiary hover:border-border-strong hover:text-fg-secondary',
-          )}
-        >
-          <DiceIcon size={16} filled={workflow.randomizeSeed} />
-        </button>
-      </Field>
-      {showDenoise && (
-        <SliderRow label="Denoise" value={workflow.denoise} onChange={(v) => setWorkflow({ denoise: v })} min={0} max={1} step={0.01} format={(v) => v.toFixed(2)} />
+    <ControlSection
+      id="generation"
+      title="Generation"
+      summary={`${workflow.steps} steps · CFG ${Number(workflow.cfg).toFixed(1)}${showDenoise ? ` · denoise ${Number(workflow.denoise).toFixed(2)}` : ''}`}
+      forceOpen={f.active}
+    >
+      {f.matches('steps', 'generation') && (
+        <SliderRow label="Steps" value={workflow.steps} onChange={(v) => setWorkflow({ steps: v })} min={1} max={200} defaultValue={DEFAULTS.steps} />
       )}
-    </section>
+      {f.matches('cfg', 'guidance', 'generation') && (
+        <SliderRow label="CFG" value={workflow.cfg} onChange={(v) => setWorkflow({ cfg: v })} min={0} max={30} step={0.1} format={(v) => v.toFixed(1)} defaultValue={DEFAULTS.cfg} />
+      )}
+      {f.matches('seed', 'random', 'generation') && (
+        <Field label="Seed">
+          <NumberInput value={workflow.seed} onValueChange={(v) => setWorkflow({ seed: v })} step={1} align="right" ariaLabel="Seed" />
+          <button
+            type="button"
+            title="Randomize seed now"
+            aria-label="Randomize seed now"
+            onClick={() => setWorkflow({ seed: Math.floor(Math.random() * 0xFFFFFFFF) })}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border-default bg-bg-elev text-fg-tertiary hover:border-border-strong hover:text-fg-secondary"
+          >
+            <ResetIcon size={16} />
+          </button>
+          <button
+            type="button"
+            title={workflow.randomizeSeed ? 'Auto-randomize seed on every generate (on)' : 'Auto-randomize seed on every generate (off)'}
+            aria-label="Auto-randomize seed on every generate"
+            aria-pressed={workflow.randomizeSeed}
+            onClick={() => setWorkflow({ randomizeSeed: !workflow.randomizeSeed })}
+            className={cn(
+              'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-colors',
+              workflow.randomizeSeed
+                ? 'border-accent bg-accent-soft text-accent-fg'
+                : 'border-border-default bg-bg-elev text-fg-tertiary hover:border-border-strong hover:text-fg-secondary',
+            )}
+          >
+            <DiceIcon size={16} filled={workflow.randomizeSeed} />
+          </button>
+        </Field>
+      )}
+      {showDenoise && f.matches('denoise', 'strength', 'generation') && (
+        <SliderRow label="Denoise" value={workflow.denoise} onChange={(v) => setWorkflow({ denoise: v })} min={0} max={1} step={0.01} format={(v) => v.toFixed(2)} defaultValue={DEFAULTS.denoise} />
+      )}
+    </ControlSection>
   );
 }
 
@@ -148,25 +171,36 @@ export function OutputSection() {
     return `${w / d}:${h / d}`;
   })();
 
+  const f = useControlFilter();
+  if (!f.matches('output', 'size', 'width', 'height', 'resolution', 'batch', 'count')) return null;
   return (
-    <section className="flex flex-col gap-2">
-      <SectionLabel label="OUTPUT" />
-      <Field label="Size">
-        <Select
-          value={current}
-          onValueChange={(v) => {
-            const m = v.match(/(\d+)\s*×\s*(\d+)/);
-            if (m) setWorkflow({ width: Number(m[1]), height: Number(m[2]) });
-          }}
-          options={options}
-          ariaLabel="Output size"
-        />
-        <span className="shrink-0 rounded bg-accent-soft px-2 py-1 text-[11px] font-medium text-accent-fg">
-          {ratio}
-        </span>
-      </Field>
-      <SliderRow label="Batch" value={workflow.batch} onChange={(v) => setWorkflow({ batch: v })} min={1} max={64} />
-    </section>
+    <ControlSection
+      id="output"
+      title="Output"
+      summary={`${current} · ${ratio}${workflow.batch > 1 ? ` · ×${workflow.batch}` : ''}`}
+      forceOpen={f.active}
+    >
+      {f.matches('size', 'width', 'height', 'resolution', 'output') && (
+        <Field label="Size">
+          <Select
+            value={current}
+            onValueChange={(v) => {
+              const m = v.match(/(\d+)\s*×\s*(\d+)/);
+              if (m) setWorkflow({ width: Number(m[1]), height: Number(m[2]) });
+            }}
+            options={options}
+            ariaLabel="Output size"
+          />
+          <span className="shrink-0 rounded bg-accent-soft px-2 py-1 text-[11px] font-medium text-accent-fg">
+            {ratio}
+          </span>
+        </Field>
+      )}
+      {f.matches('batch', 'count', 'output') && (
+        <SliderRow label="Batch" value={workflow.batch} onChange={(v) => setWorkflow({ batch: v })} min={1} max={64} defaultValue={DEFAULTS.batch}
+          hint={workflow.batch > 4 ? `${workflow.batch} images per run — slower, and every one uses VRAM.` : undefined} />
+      )}
+    </ControlSection>
   );
 }
 
@@ -177,15 +211,22 @@ export function UpscaleModelSection() {
   const upscaleAvail = useResourceAvailability('upscale');
   const enabled = workflow.upscaleEnabled;
   const models = Array.isArray(server.upscaleModels) ? server.upscaleModels : [];
+  const f = useControlFilter();
+  if (!f.matches('upscale', 'upscale model', 'enlarge', 'resize', workflow.upscaleModel)) return null;
   // Native <select> avoids the Radix-Select empty-value crash and works
   // better on mobile keyboards.
   return (
-    <section className="flex flex-col gap-2">
-      <SectionLabel
-        label="UPSCALE MODEL"
-        right={<Switch checked={enabled} onCheckedChange={(on) => setWorkflow({ upscaleEnabled: on })} ariaLabel="Enable upscale model" />}
-      />
-      <div className={cn('flex flex-col gap-2 transition-opacity', !enabled && 'opacity-50 pointer-events-none')}>
+    <ControlSection
+      id="upscale"
+      title="Upscale model"
+      summary={enabled ? (workflow.upscaleModel || models[0] || 'none installed') : 'off'}
+      forceOpen={f.active}
+      action={<Switch checked={enabled} onCheckedChange={(on) => setWorkflow({ upscaleEnabled: on })} ariaLabel="Enable upscale model" />}
+    >
+      <p className="px-0.5 pb-1 text-[11px] text-fg-muted">
+        A final pass over the finished image, after every sampling pass has run.
+      </p>
+      <div className={cn('flex flex-col gap-2 transition-opacity', !enabled && 'pointer-events-none opacity-50')}>
         {models.length > 0 ? (
           <Field label="Model">
             <select
@@ -210,23 +251,27 @@ export function UpscaleModelSection() {
           </p>
         )}
       </div>
-    </section>
+    </ControlSection>
   );
 }
 
 export function RemoveBgSection() {
   const workflow = useStore(s => s.workflow);
   const setWorkflow = useStore(s => s.setWorkflow);
+  const f = useControlFilter();
+  if (!f.matches('remove background', 'background', 'rmbg', 'transparent', 'cutout', 'alpha')) return null;
   return (
-    <section className="flex flex-col gap-2">
-      <SectionLabel
-        label="REMOVE BACKGROUND"
-        right={<Switch checked={workflow.removeBg} onCheckedChange={(on) => setWorkflow({ removeBg: on })} ariaLabel="Remove background" />}
-      />
-      <p className="px-1 text-[11px] text-fg-muted">
+    <ControlSection
+      id="removebg"
+      title="Remove background"
+      summary={workflow.removeBg ? 'on' : 'off'}
+      forceOpen={f.active}
+      action={<Switch checked={workflow.removeBg} onCheckedChange={(on) => setWorkflow({ removeBg: on })} ariaLabel="Remove background" />}
+    >
+      <p className="px-0.5 text-[11px] text-fg-muted">
         Uses BRIA RMBG-1.4 (<code className="font-mono">BRIA_RMBG_Zho</code>). Output is RGBA — saved with transparent background.
       </p>
-    </section>
+    </ControlSection>
   );
 }
 
@@ -240,6 +285,7 @@ export function PassesSection() {
   const workflow = useStore(s => s.workflow);
   const setWorkflow = useStore(s => s.setWorkflow);
   const passes = workflow.passes;
+  const f = useControlFilter();
 
   const updatePass = (id: string, patch: Partial<Pass>) => {
     setWorkflow({ passes: passes.map(p => p.id === id ? { ...p, ...patch } : p) });
@@ -272,8 +318,14 @@ export function PassesSection() {
   };
 
   return (
-    <section className="flex flex-col gap-3">
-      <SectionLabel label="PASSES" />
+    <ControlSection
+      id="passes"
+      title="Passes"
+      summary={passes.length
+        ? passes.map((p, i) => `${i + 2}:${p.on === false ? 'off' : `${p.upscaleMode === 'model' ? 'img' : 'lat'} ×${Number(p.scale).toFixed(2)}`}`).join(' · ')
+        : 'base only'}
+      forceOpen={f.active}
+    >
       <p className="px-1 text-[11px] text-fg-muted">
         Pass 1 uses the Parameters tab. Each pass below enlarges the previous
         output and resamples with its own params. <strong className="font-semibold text-fg-secondary">Latent</strong> is
@@ -327,7 +379,7 @@ export function PassesSection() {
       >
         + Add pass
       </button>
-    </section>
+    </ControlSection>
   );
 }
 

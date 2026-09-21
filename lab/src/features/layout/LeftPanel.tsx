@@ -7,11 +7,11 @@ import {
   PassesSection, UpscaleModelSection, RemoveBgSection,
 } from '@/features/controls/ControlsSections';
 import { GenerateButton } from '@/features/generate/GenerateButton';
-import { InputImageSection } from '@/features/inputImage';
 import { DenoiseField } from '@/features/controls/DenoiseField';
-import { ModelStack } from '@/features/models';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { loadPanelTab, savePanelTab, type PanelTab } from '@/lib/storage';
+import { ControlFilterProvider } from '@/features/controls/ControlFilter';
+import { InputImageControlSection, ModelsSection } from '@/features/controls/ModelSections';
 import { useCanvasStore } from '@/lib/canvasStore';
 import { cn } from '@/lib/cn';
 
@@ -103,14 +103,14 @@ export function LeftPanel() {
               <PromptStudio onOpenLibrary={openLibrary} />
             )}
             {tab === 'parameters' && (
-              <>
+              <ControlFilterProvider>
                 {/* InputImageSection is a global img2img upload — meaningless in
                     layer scope, where attached pixels on the layer itself are
                     the source. Hide it there to keep the panel focused. */}
-                {!isLayerScope && <ErrorBoundary label="Input image"><InputImageSection /></ErrorBoundary>}
+                {!isLayerScope && <InputImageControlSection />}
                 {/* Inpaint controls moved to the right-panel "Selected layer"
                     section, conditionally rendered when fillMode === 'inpaint'. */}
-                <ErrorBoundary label="Models"><ModelStack /></ErrorBoundary>
+                <ModelsSection />
                 <SamplingSection />
                 {/* In layer scope the standalone DenoiseField below owns
                     the user-facing denoise; hide GenerationSection's own
@@ -121,10 +121,10 @@ export function LeftPanel() {
                     the layer's bounds drive output size and there's nothing to
                     show here. */}
                 {!isLayerScope && <OutputSection />}
-              </>
+              </ControlFilterProvider>
             )}
             {tab === 'post' && (
-              <>
+              <ControlFilterProvider>
                 {/* Passes are skipped by the inpaint pipeline (the stitch
                     step is gated off when any extra pass exists), so hide
                     in layer mode to avoid silently breaking the wash-out
@@ -132,7 +132,7 @@ export function LeftPanel() {
                 {!isLayerScope && <ErrorBoundary label="Passes"><PassesSection /></ErrorBoundary>}
                 <ErrorBoundary label="Upscale Model"><UpscaleModelSection /></ErrorBoundary>
                 <ErrorBoundary label="Remove Background"><RemoveBgSection /></ErrorBoundary>
-              </>
+              </ControlFilterProvider>
             )}
           </div>
         </>
