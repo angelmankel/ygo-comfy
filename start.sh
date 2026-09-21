@@ -43,6 +43,45 @@ done
 mkdir -p /tmp/nginx-body /tmp/nginx-proxy /tmp/nginx-fastcgi /tmp/nginx-uwsgi /tmp/nginx-scgi
 printf '%s:%s\n' "$COMFY_AUTH_USER" "$(openssl passwd -apr1 "$COMFY_AUTH_TOKEN")" > /tmp/htpasswd
 sed -e "s/\${PROXY_PORT}/$PROXY_PORT/g" -e "s/\${COMFY_PORT}/$COMFY_PORT/g" -e "s/\${APP_PORT}/$APP_PORT/g" /opt/ygo/nginx.conf.template > /tmp/nginx.conf
+
+# Check the generated config before trusting it. nginx is the only way in — ComfyUI, ImageLab and
+# the log endpoints all sit behind it — so a config it refuses would leave a running, billing pod
+# with nothing answering and no shell to fix it from. If the template is bad, fall back to a
+# minimal proxy that still serves ComfyUI with its basic auth, and say so loudly in the log.
+if ! nginx -t -c /tmp/nginx.conf 2>/tmp/nginx-test.log; then
+  echo "[start] !! nginx REJECTED the generated config — falling back to a minimal proxy"
+  sed 's/^/[start]    /' /tmp/nginx-test.log
+  cat > /tmp/nginx.conf <<NGINX
+worker_processes 1;
+daemon off;
+error_log /dev/stderr warn;
+pid /tmp/nginx.pid;
+events { worker_connections 256; }
+http {
+  include       /etc/nginx/mime.types;
+  default_type  application/octet-stream;
+  access_log /dev/stdout;
+  client_body_temp_path /tmp/nginx-body;
+  proxy_temp_path /tmp/nginx-proxy;
+  client_max_body_size 0;
+  map \$http_upgrade \$connection_upgrade { default upgrade; '' close; }
+  server {
+    listen 0.0.0.0:$PROXY_PORT;
+    auth_basic "ygo-comfy";
+    auth_basic_user_file /tmp/htpasswd;
+    location / {
+      proxy_pass http://127.0.0.1:$COMFY_PORT;
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade \$http_upgrade;
+      proxy_set_header Connection \$connection_upgrade;
+      proxy_set_header Host \$host;
+      proxy_read_timeout 3600s;
+      proxy_buffering off;
+    }
+  }
+}
+NGINX
+fi
 nginx -c /tmp/nginx.conf &
 echo "[start] nginx listening on 0.0.0.0:$PROXY_PORT (basic auth user '$COMFY_AUTH_USER') -> 127.0.0.1:$COMFY_PORT"
 

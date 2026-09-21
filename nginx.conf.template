@@ -27,6 +27,23 @@ http {
       proxy_read_timeout 3600s;
       proxy_buffering off;
     }
+    # ComfyUI's own static bundle. It is served with `Cache-Control: no-store`, which forbids the
+    # browser from keeping any of it — so every visit re-downloads the whole frontend, measured at
+    # 14.7 MB over 119 requests. Over a remote link that is the entire reason opening ComfyUI
+    # "takes forever". The filenames are content-hashed (index-vtow2bzT.js), so a changed file is
+    # a changed URL and there is nothing to go stale. Only the hashed bundle is touched: the HTML
+    # at / and every /api/ route keep ComfyUI's own headers, or a stale index would pin the app to
+    # an old build.
+    location /assets/ {
+      proxy_pass http://127.0.0.1:${COMFY_PORT};
+      proxy_http_version 1.1;
+      proxy_set_header Host $host;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_hide_header Cache-Control;
+      proxy_hide_header Pragma;
+      add_header Cache-Control "public, max-age=31536000, immutable" always;
+    }
+
     # ImageLab, straight off the volume. Same origin as ComfyUI, so its fetches and its websocket carry the
     # basic auth the browser already has, and a deep link still lands on index.html.
     location /lab/ {

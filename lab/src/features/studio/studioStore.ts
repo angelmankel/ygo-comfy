@@ -27,7 +27,10 @@ interface Persisted {
   focusMode: boolean;
 }
 
-const EMPTY: Persisted = { exposed: {}, values: {}, lastPath: null, mode: 'simple', focusMode: true };
+// Focus mode defaults OFF. On a phone `useFocusMode` forces it on regardless, which is where it
+// was asked for; defaulting it on for desktop too quietly removed the ComfyUI buttons from a
+// sidebar someone was still using.
+const EMPTY: Persisted = { exposed: {}, values: {}, lastPath: null, mode: 'simple', focusMode: false };
 
 function load(): Persisted {
   try {

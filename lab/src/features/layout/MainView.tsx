@@ -5,7 +5,6 @@ import { BrushCursor } from '@/features/canvas/BrushCursor';
 import { CanvasToolbar } from '@/features/canvas/CanvasToolbar';
 import { CollectionsView } from '@/features/collections';
 import { ModelBrowserView } from '@/features/browser';
-import { ComfyView } from '@/features/comfy/ComfyView';
 import { StudioView } from '@/features/studio/StudioView';
 import { AppSidePanels } from './AppSidePanels';
 import { CanvasTopNav } from './CanvasTopNav';
@@ -57,11 +56,9 @@ export function MainView({
     );
   }
   if (mainView === 'comfy') {
-    return (
-      <ErrorBoundary label="ComfyUI">
-        <ComfyView />
-      </ErrorBoundary>
-    );
+    // Rendered by <ComfyLayer>, which sits outside this keyed subtree so the iframe survives a
+    // view switch. Returning null here keeps the switch animation without a second frame.
+    return null;
   }
 
   const leftInset = isDesktop && leftOpen ? LEFT_W : 0;

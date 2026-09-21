@@ -18,10 +18,13 @@ import { ComfyIcon, ExternalLinkIcon, ResetIcon } from '@/components/ui/icons';
  *
  * Note: ComfyUI doesn't set X-Frame-Options, so it embeds fine.
  */
-export function ComfyView() {
+export function ComfyView({ serverId }: { serverId?: string }) {
   const servers = useStore((s) => s.servers);
-  const serverId = useCanvasStore((s) => s.comfyServerId);
-  const server = servers.find((s) => s.id === serverId) ?? servers[0];
+  const activeId = useCanvasStore((s) => s.comfyServerId);
+  // ComfyLayer keeps one of these per server it has warmed, so the server is passed in rather
+  // than read from the store — otherwise every kept-alive frame would follow the active one.
+  const id = serverId ?? activeId;
+  const server = servers.find((s) => s.id === id) ?? servers[0];
 
   // Subscribe to just this server's info — re-renders the moment the probe
   // finishes (or a later WS reconnect flips it from offline → online).

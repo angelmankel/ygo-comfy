@@ -44,6 +44,9 @@ Vocabulary axes: `subject-form`, `background` (abstract | scene | none), `framin
 9. **Asking for a pod `volumeInGb` blocks Blackwell deploys.** Every B200/B300 attempt returned "no instances
    available" until the volume was dropped; the nodes have no local disk to give. Use a network/global volume.
 10. nginx serves files as text/plain unless `mime.types` is included. Fixed in the image as of 23cc450.
+11. ComfyUI serves its frontend with `Cache-Control: no-store` — 14.7 MB over 119 requests, re-fetched
+    every single load. nginx now overrides it for the content-hashed `/assets/` bundle only. Needs a
+    resume onto `:latest` to take effect; the in-app keep-alive already removes the per-switch reload.
 
 ## Rules
 - Every retry is a NEW project. Never overwrite a render.

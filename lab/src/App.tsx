@@ -7,6 +7,7 @@ import { TooltipProvider } from '@/components/ui/Tooltip';
 import { ConfirmProvider } from '@/components/ui/ConfirmDialog';
 import { CanvasContext } from '@/lib/canvasContext';
 import { MainView } from '@/features/layout/MainView';
+import { ComfyLayer } from '@/features/comfy/ComfyLayer';
 import { LEFT_W, RIGHT_W } from '@/features/layout/constants';
 import { useStore } from '@/lib/store';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
@@ -68,6 +69,9 @@ export default function App() {
                 <div className="animate-view-loading h-full w-1/3 bg-gradient-to-r from-transparent via-accent to-transparent" />
               </div>
             )}
+            {/* Outside the keyed wrapper on purpose: anything inside it is rebuilt on every
+                view switch, and rebuilding ComfyUI is the thing this exists to stop. */}
+            <ComfyLayer />
             <div key={viewKey} className="animate-view-in absolute inset-0">
               <MainView
                 mainView={mainView}
