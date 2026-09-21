@@ -1,2 +1,5 @@
 .env
 *.log
+node_modules/
+lab/node_modules/
+lab/.vite/

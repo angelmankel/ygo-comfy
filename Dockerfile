@@ -69,6 +69,7 @@ RUN pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 \
 # ---- Runtime files --------------------------------------------------------------
 COPY models.txt download-models.sh start.sh nginx.conf.template live.py /opt/ygo/
 COPY app /opt/ygo/app
+COPY lab/dist /opt/ygo/app/lab
 RUN chmod +x /opt/ygo/download-models.sh /opt/ygo/start.sh
 
 ENV MODELS_DIR=/workspace/ComfyUI/models \

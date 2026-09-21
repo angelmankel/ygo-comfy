@@ -25,7 +25,7 @@ def stamp() -> float:
     """Newest mtime under the app dir. Cheap enough to poll, and it needs no extra dependency."""
     newest = 0.0
     for root, dirs, files in os.walk(LIVE):
-        dirs[:] = [d for d in dirs if d not in {"__pycache__", ".git"}]
+        dirs[:] = [d for d in dirs if d not in {"__pycache__", ".git", "lab", "node_modules"}]  # lab/ is static, nginx serves it
         for f in files:
             if f.endswith((".py", ".html", ".css", ".js", ".json")):
                 try: newest = max(newest, os.stat(Path(root) / f).st_mtime)

@@ -25,6 +25,13 @@ http {
       proxy_read_timeout 3600s;
       proxy_buffering off;
     }
+    # ImageLab, straight off the volume. Same origin as ComfyUI, so its fetches and its websocket carry the
+    # basic auth the browser already has, and a deep link still lands on index.html.
+    location /lab/ {
+      alias /workspace/ygo-app/lab/;
+      try_files $uri $uri/ /lab/index.html;
+    }
+    location = /lab { return 301 /lab/; }
     location /ygo/logs/ {
       alias /workspace/ygo-logs/;
       autoindex on;

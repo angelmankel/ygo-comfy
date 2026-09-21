@@ -1,0 +1,1 @@
+export { CollectionsView } from './CollectionsView';

@@ -118,6 +118,70 @@ def run_install(job: str, url: str, folder: str, filename: str, size: int, note:
         j.update(state="error", log=(j.get("log") or []) + [f"{type(e).__name__}: {e}"])
 
 
+# Civitai, proxied. The key lives here and never reaches the browser, the browser never fights CORS, and one
+# short-lived cache keeps a filter click from hammering the API.
+CIV_BASE = "https://civitai.com/api/v1"
+CACHE: dict[str, tuple[float, dict]] = {}
+CACHE_TTL = 120
+
+# What a model type means for where its file belongs on disk.
+FOLDER_OF = {"Checkpoint": "checkpoints", "LORA": "loras", "LoCon": "loras", "DoRA": "loras",
+             "TextualInversion": "embeddings", "VAE": "vae", "Controlnet": "controlnet",
+             "Upscaler": "upscale_models", "MotionModule": "checkpoints", "Hypernetwork": "checkpoints"}
+TYPES = list(FOLDER_OF) + ["Poses", "Wildcards", "Workflows", "Other"]
+BASES = ["Illustrious", "NoobAI", "Pony", "SDXL 1.0", "SDXL Turbo", "SD 1.5", "SD 3.5", "Flux.1 D", "Flux.1 S",
+         "Anima", "Qwen", "Wan Video", "Hunyuan Video", "Other"]
+SORTS = ["Highest Rated", "Most Downloaded", "Most Liked", "Newest"]
+
+
+def civitai_get(path: str, params: dict) -> dict:
+    qs = urllib.parse.urlencode([(k, v) for k, vs in params.items() for v in (vs if isinstance(vs, list) else [vs]) if v not in ("", None)])
+    url = f"{CIV_BASE}/{path}?{qs}"
+    hit = CACHE.get(url)
+    if hit and time.time() - hit[0] < CACHE_TTL:
+        return hit[1]
+    headers = {"User-Agent": "ygo-comfy"}
+    if CIVITAI:
+        headers["Authorization"] = f"Bearer {CIVITAI}"
+    with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=45) as r:
+        data = json.load(r)
+    CACHE[url] = (time.time(), data)
+    if len(CACHE) > 200:
+        for k in sorted(CACHE, key=lambda k: CACHE[k][0])[:100]:
+            CACHE.pop(k, None)
+    return data
+
+
+def on_disk() -> set[str]:
+    out: set[str] = set()
+    for folder in FOLDERS:
+        d = MODELS / folder
+        if d.is_dir():
+            out |= {f.name for f in d.iterdir() if f.is_file()}
+    return out
+
+
+def slim(m: dict, have: set[str]) -> dict:
+    """One card's worth of a Civitai model: what to show, what to install, and whether we already have it."""
+    versions = []
+    for v in m.get("modelVersions", [])[:12]:
+        files = [{"name": f.get("name"), "bytes": int(float(f.get("sizeKB", 0)) * 1024),
+                  "primary": bool(f.get("primary")), "format": (f.get("metadata") or {}).get("format")}
+                 for f in v.get("files", []) if f.get("type") == "Model"]
+        images = [i.get("url") for i in v.get("images", []) if i.get("type", "image") == "image"][:4]
+        versions.append({"id": v.get("id"), "name": v.get("name"), "base": v.get("baseModel"),
+                         "published": (v.get("publishedAt") or "")[:10], "words": v.get("trainedWords") or [],
+                         "files": files, "images": images,
+                         "installed": any(f["name"] in have for f in files)})
+    cover = next((i for v in versions for i in v["images"]), None)
+    stats = m.get("stats", {})
+    return {"id": m.get("id"), "name": m.get("name"), "type": m.get("type"), "nsfw": m.get("nsfw"), "cover": cover,
+            "creator": (m.get("creator") or {}).get("username", ""),
+            "downloads": stats.get("downloadCount", 0), "thumbsUp": stats.get("thumbsUpCount", 0),
+            "tags": (m.get("tags") or [])[:6], "folder": FOLDER_OF.get(m.get("type", ""), "checkpoints"),
+            "versions": versions, "installed": any(v["installed"] for v in versions)}
+
+
 class H(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -145,6 +209,37 @@ class H(BaseHTTPRequestHandler):
         if p == "/api/state":
             return self._json(200, {"folders": FOLDERS, "models": self.inventory(), "jobs": JOBS,
                                     "extra": EXTRA.read_text().splitlines() if EXTRA.exists() else []})
+        if p == "/api/civitai/meta":
+            return self._json(200, {"types": TYPES, "bases": BASES, "sorts": SORTS, "key": bool(CIVITAI)})
+        if p == "/api/civitai/search":
+            try:
+                data = civitai_get("models", {
+                    "limit": q.get("limit", ["24"])[0], "cursor": q.get("cursor", [""])[0],
+                    "query": q.get("query", [""])[0], "types": q.get("types", []),
+                    "baseModels": q.get("bases", []), "sort": q.get("sort", ["Most Downloaded"])[0],
+                    "nsfw": q.get("nsfw", ["false"])[0], "period": q.get("period", ["AllTime"])[0]})
+                have = on_disk()
+                meta = data.get("metadata", {})
+                return self._json(200, {"items": [slim(m, have) for m in data.get("items", [])],
+                                        "cursor": meta.get("nextCursor"), "total": meta.get("totalItems", 0)})
+            except Exception as e:
+                return self._json(502, {"error": f"{type(e).__name__}: {e}"})
+        if p == "/api/civitai/image":
+            # Some Civitai CDN images dislike a cross-site referrer; going through the pod sidesteps it.
+            src = q.get("url", [""])[0]
+            if not src.startswith("https://image.civitai.com/"):
+                return self._json(400, {"error": "not a civitai image"})
+            # Civitai resizes on its CDN through a /width=N/ path segment. A card is 230px wide; fetching the
+            # 1.5 MB original for each of 24 of them is a slideshow, so ask for the size actually drawn.
+            # The transform is its own path segment: .../<uuid>/original=true/<n>.jpeg or .../<uuid>/width=N/<n>.jpeg.
+            # Replacing that segment is what shrinks the file; inserting a new one is ignored and you still get 1.5 MB.
+            w = q.get("w", ["450"])[0]
+            src = re.sub(r"/(original=true|width=\d+|height=\d+)(,[^/]*)?/", f"/width={w}/", src, count=1)
+            try:
+                with urllib.request.urlopen(urllib.request.Request(src, headers={"User-Agent": "ygo-comfy"}), timeout=30) as r:
+                    return self._send(200, r.read(), r.headers.get("Content-Type", "image/jpeg"))
+            except Exception as e:
+                return self._json(502, {"error": str(e)})
         if p == "/api/resolve":
             try:
                 return self._json(200, resolve(q.get("src", [""])[0]))
