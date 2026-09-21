@@ -5,7 +5,7 @@ It is deliberately stdlib-only. Anything pip-installed would live in the image, 
 directory is that it changes without one. nginx already puts basic auth in front of every route, so there is no
 auth here; keep it that way by never exposing this port publicly.
 """
-import json, os, re, subprocess, threading, time, urllib.parse, urllib.request
+import json, mimetypes, os, re, subprocess, threading, time, urllib.parse, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -206,6 +206,22 @@ class H(BaseHTTPRequestHandler):
         q = urllib.parse.parse_qs(u.query)
         if p in ("", "/"):
             return self._send(200, (APP / "index.html").read_bytes(), "text/html; charset=utf-8")
+        if p == "/lab" or p.startswith("/lab/"):
+            # Serving the SPA here as well as through nginx. nginx had no mime.types and handed the browser a
+            # module as text/plain, which it refuses; python guesses the type properly, and this path can be
+            # fixed on a running pod, where the nginx config cannot.
+            rel = p[len("/lab/"):] if p.startswith("/lab/") else ""
+            f = (APP / "lab" / rel).resolve()
+            if not str(f).startswith(str(APP / "lab")):
+                return self._json(400, {"error": "outside the app"})
+            if f.is_dir() or not rel:
+                f = APP / "lab" / "index.html"
+            if not f.is_file():
+                f = APP / "lab" / "index.html"          # deep links still land on the app
+            ctype = mimetypes.guess_type(f.name)[0] or "application/octet-stream"
+            if ctype.startswith("text/") or ctype in ("application/javascript", "application/json"):
+                ctype += "; charset=utf-8"
+            return self._send(200, f.read_bytes(), ctype)
         if p == "/api/state":
             return self._json(200, {"folders": FOLDERS, "models": self.inventory(), "jobs": JOBS,
                                     "extra": EXTRA.read_text().splitlines() if EXTRA.exists() else []})

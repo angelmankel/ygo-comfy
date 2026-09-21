@@ -3,11 +3,12 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'node:path';
 
-// On the pod this app is served by nginx from a subpath, not from a host of its own, so every asset URL has to
-// carry that prefix — a build with base '/' asks for /assets/... and collides with ComfyUI's own /assets.
+// Served from a subpath on the pod, never from a host of its own. A relative base keeps the asset URLs
+// relative to wherever index.html lands, so one build works under /lab/ and under /ygo/app/lab/ alike — and it
+// cannot collide with ComfyUI's own /assets, which a base of '/' would.
 // Output goes to lab/dist, which is what the image ships and the volume keeps.
 export default defineConfig({
-  base: '/lab/',
+  base: './',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: { '@': path.resolve(__dirname, 'src') },
