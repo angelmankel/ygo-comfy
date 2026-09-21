@@ -48,14 +48,14 @@ export function StudioView() {
   }
 
   return isDesktop
-    ? <StudioDesktop library={library} run={run} />
-    : <StudioMobile library={library} run={run} />;
+    ? <StudioDesktop library={library} run={run} host={host} />
+    : <StudioMobile library={library} run={run} host={host} />;
 }
 
 type Library = ReturnType<typeof useWorkflowLibrary>;
 type Run = ReturnType<typeof useStudioRun>;
 
-function StudioDesktop({ library, run }: { library: Library; run: Run }) {
+function StudioDesktop({ library, run, host }: { library: Library; run: Run; host: string | null }) {
   const mode = useStudio(s => s.mode);
   const setMode = useStudio(s => s.setMode);
   const focusMode = useStudio(s => s.focusMode);
@@ -102,7 +102,16 @@ function StudioDesktop({ library, run }: { library: Library; run: Run }) {
 
       {/* Image */}
       <main className="flex min-w-0 flex-1 flex-col gap-3 p-3">
-        <ResultView results={run.results} latest={run.latest} busy={run.busy} status={run.status} />
+        <ResultView
+          results={run.results}
+          latest={run.latest}
+          busy={run.busy}
+          status={run.status}
+          progress={run.progress}
+          currentNode={run.currentNode}
+          preview={run.preview}
+          queueRemaining={run.queueRemaining}
+        />
         {run.error && <p className="shrink-0 text-[12px] text-red-400">{run.error}</p>}
       </main>
 
@@ -124,14 +133,18 @@ function StudioDesktop({ library, run }: { library: Library; run: Run }) {
               </button>
             ))}
           </div>
-          <span className="min-w-0 flex-1 truncate text-[11px] text-fg-muted">
+          <span className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-[11px] text-fg-muted">
+            <span
+              title={run.connected ? 'Live — connected to ComfyUI' : 'Socket down'}
+              className={cn('h-1.5 w-1.5 shrink-0 rounded-full', run.connected ? 'bg-emerald-400' : 'bg-red-400')}
+            />
             {path ? `${paramCount} control${paramCount === 1 ? '' : 's'}` : 'nothing open'}
           </span>
           <ResetAllButton />
         </header>
 
         <div className="scroll-y min-h-0 flex-1 px-3 py-3">
-          <ParamList />
+          <ParamList host={host} />
         </div>
 
         <footer className="shrink-0 border-t border-border-subtle p-3">
@@ -149,6 +162,9 @@ export function GenerateBar({ run, large }: { run: Run; large?: boolean }) {
     <div className="flex items-center gap-2">
       <button
         type="button"
+        // The sidebar's view switcher is also called "Generate". Distinct labels keep the two
+        // apart for a screen reader, and for anything driving the UI by name.
+        aria-label="Generate image"
         onClick={() => void run.run()}
         disabled={disabled}
         className={cn(

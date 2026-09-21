@@ -43,7 +43,7 @@ const PANES = ['workflows', 'controls', 'image'] as const;
 type Pane = (typeof PANES)[number];
 const PANE_LABEL: Record<Pane, string> = { workflows: 'Workflows', controls: 'Controls', image: 'Image' };
 
-export function StudioMobile({ library, run }: { library: Library; run: Run }) {
+export function StudioMobile({ library, run, host }: { library: Library; run: Run; host: string | null }) {
   const [pane, setPane] = useState<Pane>('controls');
   const mode = useStudio(s => s.mode);
   const setMode = useStudio(s => s.setMode);
@@ -61,6 +61,14 @@ export function StudioMobile({ library, run }: { library: Library; run: Run }) {
       setPane('image');
     }
   }, [run.latest]);
+
+  // Jump to the image the moment a preview frame arrives, so a run is watched rather than waited
+  // out. Only on the first frame of a run — re-jumping every step would trap the pane.
+  const sawPreview = useRef(false);
+  useEffect(() => {
+    if (!run.busy) { sawPreview.current = false; return; }
+    if (run.preview && !sawPreview.current) { sawPreview.current = true; setPane('image'); }
+  }, [run.busy, run.preview]);
 
   const step = useCallback((dir: 1 | -1) => {
     setPane(p => PANES[Math.min(PANES.length - 1, Math.max(0, PANES.indexOf(p) + dir))]);
@@ -188,14 +196,23 @@ export function StudioMobile({ library, run }: { library: Library; run: Run }) {
                   aria-hidden
                 />
               )}
-              <ParamList large />
+              <ParamList large host={host} />
             </div>
           </div>
         )}
 
         {pane === 'image' && (
           <div className="h-full min-h-[50vh]">
-            <ResultView results={run.results} latest={run.latest} busy={run.busy} status={run.status} />
+            <ResultView
+              results={run.results}
+              latest={run.latest}
+              busy={run.busy}
+              status={run.status}
+              progress={run.progress}
+              currentNode={run.currentNode}
+              preview={run.preview}
+              queueRemaining={run.queueRemaining}
+            />
           </div>
         )}
       </div>

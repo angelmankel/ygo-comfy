@@ -1,5 +1,7 @@
 import type { Layer, WorkflowState, ServerInfo, HistoryEntry } from './types';
 import { compileLayers } from './prompt';
+import { subscribeComfy } from './comfyBus';
+import { comfyHttpFor, clientId, viewUrl } from './comfyHost';
 import { FALLBACKS, uid } from './storage';
 import { resizeDataUrlForUpload, scaleForLongestEdge } from '@/features/inputImage/imageOps';
 
@@ -11,49 +13,9 @@ import { resizeDataUrlForUpload, scaleForLongestEdge } from '@/features/inputIma
  * https/wss (the browser blocks plain-HTTP requests as mixed content), so the
  * user is expected to expose each ComfyUI server on an https-capable hostname.
  */
-const isSecure = () => typeof window !== 'undefined' && window.location.protocol === 'https:';
-
-/** HTTP base URL for a given ComfyUI host. */
-export function comfyHttpFor(host: string) {
-  return `${isSecure() ? 'https' : 'http'}://${host}`;
-}
-/** WebSocket base URL for a given ComfyUI host. */
-export function comfyWsFor(host: string) {
-  return `${isSecure() ? 'wss' : 'ws'}://${host}/ws`;
-}
-
-/** Build a ComfyUI `/view` URL for an image on a specific server. */
-export function viewUrl(
-  entry: { filename: string; subfolder?: string; type?: string },
-  host: string,
-) {
-  return `${comfyHttpFor(host)}/view?` + new URLSearchParams({
-    filename: entry.filename,
-    subfolder: entry.subfolder || '',
-    type: entry.type || 'output',
-  });
-}
-
-/**
- * Stable per-browser client id. Persisted to localStorage so that after a
- * page refresh the same id is sent on the new WebSocket connection —
- * ComfyUI routes binary preview frames (and the SaveImageWebsocket node) by
- * `client_id`, so a fresh id every reload silently breaks live preview
- * reconnection for any in-flight job.
- */
-const CLIENT_ID_KEY = 'imagelab.clientId.v1';
-function loadOrCreateClientId(): string {
-  try {
-    const saved = localStorage.getItem(CLIENT_ID_KEY);
-    if (saved) return saved;
-  } catch { /* ignore */ }
-  const fresh =
-    (typeof crypto !== 'undefined' && 'randomUUID' in crypto && crypto.randomUUID()) ||
-    (Math.random().toString(36).slice(2) + Date.now().toString(36));
-  try { localStorage.setItem(CLIENT_ID_KEY, fresh); } catch { /* ignore */ }
-  return fresh;
-}
-export const clientId = loadOrCreateClientId();
+// Host addressing and the client id live in `comfyHost.ts` so the websocket bus can use them
+// without importing this module. Re-exported here: every existing import site still works.
+export { comfyHttpFor, comfyWsFor, viewUrl, clientId } from './comfyHost';
 
 /**
  * POST an image to ComfyUI's `input/` folder. Returns the filename the
@@ -926,52 +888,28 @@ export function connectComfyWs(host: string, handlers: {
   onClose?: () => void;
   onEvent: (ev: WsEvent) => void;
 }): () => void {
-  let ws: WebSocket | null = null;
-  let stopped = false;
-  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-
-  const open = () => {
-    if (stopped) return;
-    ws = new WebSocket(`${comfyWsFor(host)}?clientId=${clientId}`);
-    ws.binaryType = 'arraybuffer';
-    ws.onopen = () => handlers.onOpen?.();
-    ws.onclose = () => {
-      handlers.onClose?.();
-      if (!stopped) reconnectTimer = setTimeout(open, 2000);
-    };
-    ws.onmessage = (ev) => {
-      if (typeof ev.data === 'string') {
-        let msg: { type?: string; data?: Record<string, unknown> };
-        try { msg = JSON.parse(ev.data); } catch { return; }
-        const { type, data } = msg;
-        if (!type || !data) return;
-        if (type === 'progress') {
-          handlers.onEvent({ type: 'progress', value: Number(data.value) | 0, max: Number(data.max) | 0 });
-        } else if (type === 'executing') {
-          handlers.onEvent({ type: 'executing', promptId: String(data.prompt_id || ''), node: data.node === null ? null : String(data.node ?? '') });
-        } else if (type === 'execution_error') {
-          handlers.onEvent({ type: 'execution_error', message: String(data.exception_message || 'execution_error') });
-        }
-      } else if (ev.data instanceof ArrayBuffer) {
-        const buf = ev.data;
-        if (buf.byteLength < 8) return;
-        const view = new DataView(buf);
-        const eventType = view.getUint32(0, false);
-        if (eventType !== 1) return;
-        const fmt = view.getUint32(4, false);
-        const mime = fmt === 2 ? 'image/png' : 'image/jpeg';
-        handlers.onEvent({ type: 'binary', mime, bytes: new Uint8Array(buf, 8) });
+  // Now a thin adapter over the shared bus. It used to open its own socket, which meant a second
+  // caller on the same host displaced this one inside ComfyUI — only one socket per clientId
+  // survives there. The bus owns the connection; this narrows the bus's richer event set down to
+  // the four cases the generate view's store already knows how to handle.
+  return subscribeComfy(host, {
+    onOpen: handlers.onOpen,
+    onClose: handlers.onClose,
+    onEvent: (ev) => {
+      switch (ev.type) {
+        case 'binary':
+          return handlers.onEvent({ type: 'binary', mime: ev.mime, bytes: ev.bytes });
+        case 'progress':
+          return handlers.onEvent({ type: 'progress', value: ev.value, max: ev.max });
+        case 'executing':
+          return handlers.onEvent({ type: 'executing', promptId: ev.promptId, node: ev.node });
+        case 'execution_error':
+          return handlers.onEvent({ type: 'execution_error', message: ev.message });
+        default:
+          return;   // execution_start / cached / executed / status are Studio's, not this view's
       }
-    };
-  };
-
-  open();
-
-  return () => {
-    stopped = true;
-    if (reconnectTimer) clearTimeout(reconnectTimer);
-    ws?.close();
-  };
+    },
+  });
 }
 
 // ─── Studio: saved workflows and raw-graph submission ───────────────────────

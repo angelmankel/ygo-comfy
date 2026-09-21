@@ -8,6 +8,7 @@ import { cn } from '@/lib/cn';
 import { IconButton } from '@/components/ui/IconButton';
 import { ResetIcon } from '@/components/ui/icons';
 import { ParamField } from './ParamField';
+import { ImageInput, isImageParam } from './ImageInput';
 import { paramLabel, type WorkflowParam } from './params';
 import { exposedParams, useStudio } from './studioStore';
 
@@ -76,7 +77,7 @@ export function WorkflowPicker({
  * workflow with ninety widgets reduced to the four that matter today. In advanced mode it is
  * everything, grouped by the node it came from, each with a pin that adds it to simple mode.
  */
-export function ParamList({ large }: { large?: boolean }) {
+export function ParamList({ large, host }: { large?: boolean; host: string | null }) {
   const params = useStudio(s => s.params);
   const path = useStudio(s => s.path);
   const mode = useStudio(s => s.mode);
@@ -91,6 +92,28 @@ export function ParamList({ large }: { large?: boolean }) {
 
   const valueOf = (p: WorkflowParam) => (p.id in values ? values[p.id] : p.value);
 
+  /** An image input gets the uploader; everything else gets the normal control. */
+  const render = (p: WorkflowParam) =>
+    isImageParam(p) && host ? (
+      <ImageInput
+        key={p.id}
+        param={p}
+        value={valueOf(p)}
+        onChange={v => setValue(p.id, v)}
+        host={host}
+        large={large}
+      />
+    ) : (
+      <ParamField
+        key={p.id}
+        param={p}
+        value={valueOf(p)}
+        onChange={v => setValue(p.id, v)}
+        onReset={() => resetValue(p.id)}
+        large={large}
+      />
+    );
+
   if (mode === 'simple') {
     const shown = exposedParams(params, exposedIds);
     if (!shown.length) {
@@ -100,20 +123,7 @@ export function ParamList({ large }: { large?: boolean }) {
         </Hint>
       );
     }
-    return (
-      <div className="flex flex-col gap-1">
-        {shown.map(p => (
-          <ParamField
-            key={p.id}
-            param={p}
-            value={valueOf(p)}
-            onChange={v => setValue(p.id, v)}
-            onReset={() => resetValue(p.id)}
-            large={large}
-          />
-        ))}
-      </div>
-    );
+    return <div className="flex flex-col gap-1">{shown.map(render)}</div>;
   }
 
   // Advanced: every knob, grouped by node, in graph order.
@@ -134,15 +144,7 @@ export function ParamList({ large }: { large?: boolean }) {
           </h3>
           {g.items.map(p => (
             <div key={p.id} className="flex items-start gap-2">
-              <div className="min-w-0 flex-1">
-                <ParamField
-                  param={p}
-                  value={valueOf(p)}
-                  onChange={v => setValue(p.id, v)}
-                  onReset={() => resetValue(p.id)}
-                  large={large}
-                />
-              </div>
+              <div className="min-w-0 flex-1">{render(p)}</div>
               <button
                 type="button"
                 onClick={() => toggleExposed(p.id)}
@@ -165,31 +167,69 @@ export function ParamList({ large }: { large?: boolean }) {
   );
 }
 
-/** The most recent image, plus everything else this session produced. */
+/**
+ * What the run is doing, and what it made.
+ *
+ * While a job is live this shows ComfyUI's own preview frames — the partially-denoised image it
+ * pushes down the socket each step — with a real progress bar under it and the name of the node
+ * currently executing. Before the socket carried these, the only honest thing to show was the
+ * word "Running".
+ */
 export function ResultView({
-  results, latest, busy, status,
+  results, latest, busy, status, progress, currentNode, preview, queueRemaining,
 }: {
   results: { url: string; filename: string }[];
   latest: { url: string } | null;
   busy: boolean;
   status: string | null;
+  progress?: number | null;
+  currentNode?: string | null;
+  preview?: string | null;
+  queueRemaining?: number;
 }) {
+  // A live preview outranks the last finished image: it is what is happening now.
+  const shown = busy && preview ? preview : latest?.url ?? null;
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
       <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-lg bg-bg-base">
-        {latest ? (
-          <img src={latest.url} alt="Latest generation" className="max-h-full max-w-full object-contain" />
+        {shown ? (
+          <img
+            src={shown}
+            alt={busy && preview ? 'Live preview' : 'Latest generation'}
+            className="max-h-full max-w-full object-contain"
+          />
         ) : (
           <p className="px-6 text-center text-[13px] italic text-fg-muted">
             {busy ? (status ?? 'Working…') : 'No image yet — press Generate.'}
           </p>
         )}
-        {busy && latest && (
-          <div className="absolute inset-x-0 top-0 h-0.5 overflow-hidden bg-accent/10">
-            <div className="animate-view-loading h-full w-1/3 bg-gradient-to-r from-transparent via-accent to-transparent" />
+
+        {busy && (
+          <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1 bg-gradient-to-t from-black/75 to-transparent px-3 pb-2 pt-6">
+            <div className="flex items-baseline justify-between gap-2 text-[11.5px] text-white/85">
+              <span className="truncate">{currentNode ?? status ?? 'Working…'}</span>
+              <span className="shrink-0 tabular-nums">
+                {progress != null ? `${Math.round(progress * 100)}%` : ''}
+                {queueRemaining ? ` · ${queueRemaining} queued` : ''}
+              </span>
+            </div>
+            <div className="h-1 overflow-hidden rounded-full bg-white/15">
+              {progress != null ? (
+                // A real bar once a sampler reports steps.
+                <div
+                  className="h-full rounded-full bg-accent transition-[width] duration-150"
+                  style={{ width: `${Math.max(2, progress * 100)}%` }}
+                />
+              ) : (
+                // Between nodes there are no steps to count, so sweep rather than sit at zero.
+                <div className="animate-view-loading h-full w-1/3 bg-gradient-to-r from-transparent via-accent to-transparent" />
+              )}
+            </div>
           </div>
         )}
       </div>
+
       {results.length > 1 && (
         <div className="scroll-x-thin flex shrink-0 gap-2 pb-1">
           {results.map(r => (
