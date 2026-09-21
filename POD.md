@@ -1,16 +1,18 @@
 # Live pod
 
-**There is no live pod.** `2wkq26rkp2mgbe` (B200, 180 GB) was terminated 2026-09-21 after ~4h15m
-at $6.79/h. No pods are running; balance $18.96.
+**Nothing is running and nothing is stored.** Pod `2wkq26rkp2mgbe` (B200, 180 GB) was terminated
+2026-09-21 after ~4h15m at $6.79/h, and the network volume `ygo-drive` (`z388qvn3nv`, 256 GB,
+US-CA-2) was deleted with it. No pods, no volumes, no RunPod spend at all. Balance $18.96.
 
-The network volume **survived** — `ygo-drive` (`z388qvn3nv`, 256 GB, US-CA-2) still holds the 58
-models. Terminating a pod deletes a pod-local volume, but a network volume is a separate resource
-and outlives the pod that mounted it. It bills for storage on its own, so it is the one thing left
-costing money. A new pod that mounts it starts with every model already there.
+The 58 models are not lost — `models.txt` in this repo is the manifest they were downloaded from,
+and `start.sh` fetches the missing ones on boot. A fresh pod rebuilds the set by itself; it costs
+time, not data. On this host aria2 failed outright and the curl fallback did the work, taking
+roughly ten minutes for the whole 62 GB.
 
-To come back: deploy from the RunPod template `ygo-comfy` (id `efow3nf6e7`), attach `ygo-drive` at
-`/workspace`, and do NOT ask for `volumeInGb` — that blocks Blackwell deploys. Then read the new
-ip:port, repoint Traefik, and push the app with `scratchpad/push.sh <ip:port>`.
+To come back: deploy from the RunPod template `ygo-comfy` (id `efow3nf6e7`) and add storage in the
+UI as a network volume mounted at `/workspace`. Do NOT ask for `volumeInGb` in the API call —
+that blocks Blackwell deploys outright. Then read the new ip:port, repoint Traefik, and push the
+app with `scratchpad/push.sh <ip:port>`.
 
 ## The live pod's own commands
 
