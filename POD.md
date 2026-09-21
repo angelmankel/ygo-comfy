@@ -1,18 +1,40 @@
 # Live pod
 
-**Nothing is running and nothing is stored.** Pod `2wkq26rkp2mgbe` (B200, 180 GB) was terminated
-2026-09-21 after ~4h15m at $6.79/h, and the network volume `ygo-drive` (`z388qvn3nv`, 256 GB,
-US-CA-2) was deleted with it. No pods, no volumes, no RunPod spend at all. Balance $18.96.
+| | |
+|---|---|
+| Pod id | `aur3i91oqwwb2w` (`ygo-comfy-5090-secure`, rented 2026-09-21) |
+| GPU | NVIDIA **RTX 5090** 32 GB, RunPod **secure** cloud, US, **$0.99/h** |
+| Endpoint | `http://74.2.96.53:12164` — Traefik repointed and serving |
+| Disks | 30 GB container + **100 GB pod-local volume** on `/workspace`. Not a network volume: it is created with the pod and dies with it, so there is no standing storage bill and a *stop* keeps it. |
+| Auth | user `ygo`, password = `COMFY_LOCAL_TOKEN` |
 
-The 58 models are not lost — `models.txt` in this repo is the manifest they were downloaded from,
-and `start.sh` fetches the missing ones on boot. A fresh pod rebuilds the set by itself; it costs
-time, not data. On this host aria2 failed outright and the curl fallback did the work, taking
-roughly ten minutes for the whole 62 GB.
+**Secure, not community, and the reason is worth keeping.** A community 5090 at $0.69/h was
+deployed first and never started: fifteen minutes in it was still pulling the 8.3 GB image at
+roughly 10 MB/s. The secure pod was up in **80 seconds** with the same image. Thirty cents an hour
+buys a datacentre's uplink, and on a pod that downloads 62 GB of models on first boot that is not
+a small thing.
 
-To come back: deploy from the RunPod template `ygo-comfy` (id `efow3nf6e7`) and add storage in the
-UI as a network volume mounted at `/workspace`. Do NOT ask for `volumeInGb` in the API call —
-that blocks Blackwell deploys outright. Then read the new ip:port, repoint Traefik, and push the
-app with `scratchpad/push.sh <ip:port>`.
+Finding one needs the right query. The per-datacentre GPU query only sees secure cloud and
+reported **zero** 5090s in every US datacentre — but an A40, which reports High stock globally,
+also came back empty from the same query, so it is not to be trusted. Deploying with
+`cloudType: SECURE, countryCode: "US"` found one immediately.
+
+## Installing a custom node on a pod that is already running
+
+You cannot, on this image, and it is worth knowing why before trying again:
+
+- **ComfyUI-Manager refuses it.** Its API is up and answers, but installing an arbitrary git URL
+  returns "A security error has occurred" — Manager's security level blocks anything not in its
+  registry, and its `config.ini` is not reachable through the userdata API or any Manager endpoint.
+- **Routes register at import.** aiohttp freezes its router once the app has started, so even with
+  the files in place nothing answers until ComfyUI re-execs.
+- **`custom_nodes` lives in the image layer, not on the volume.** Only `models`, `output` and
+  `input` are symlinked to `/workspace`, so anything installed live is wiped by the next container
+  restart regardless.
+
+The way in is the image: pin the node in the Dockerfile, let Actions build, then **stop and
+resume** the pod. Resume re-pulls `:latest`, and a stop keeps the pod-local volume, so the models
+stay put. Only a terminate loses them.
 
 ## The live pod's own commands
 
@@ -24,7 +46,7 @@ Read the address again — **it changes on every resume**:
 
 ```sh
 curl -s https://api.runpod.io/graphql -H "Authorization: Bearer $RUNPOD_API_KEY" -H 'Content-Type: application/json' \
-  -d '{"query":"{ pod(input:{podId:\"2wkq26rkp2mgbe\"}) { desiredStatus runtime { uptimeInSeconds ports { ip isIpPublic privatePort publicPort type } } } }"}' \
+  -d '{"query":"{ pod(input:{podId:\"aur3i91oqwwb2w\"}) { desiredStatus runtime { uptimeInSeconds ports { ip isIpPublic privatePort publicPort type } } } }"}' \
   | jq '.data.pod.runtime.ports[] | select(.type=="tcp")'
 ```
 
@@ -35,14 +57,14 @@ Stop it (keeps the network volume and the 58 models; no GPU billing):
 
 ```sh
 curl -s https://api.runpod.io/graphql -H "Authorization: Bearer $RUNPOD_API_KEY" -H 'Content-Type: application/json' \
-  -d '{"query":"mutation { podStop(input:{podId:\"2wkq26rkp2mgbe\"}) { id desiredStatus } }"}'
+  -d '{"query":"mutation { podStop(input:{podId:\"aur3i91oqwwb2w\"}) { id desiredStatus } }"}'
 ```
 
 Resume it (models are already on the volume, so this is fast and cheap):
 
 ```sh
 curl -s https://api.runpod.io/graphql -H "Authorization: Bearer $RUNPOD_API_KEY" -H 'Content-Type: application/json' \
-  -d '{"query":"mutation { podResume(input:{podId:\"2wkq26rkp2mgbe\", gpuCount:1}) { id desiredStatus costPerHr } }"}'
+  -d '{"query":"mutation { podResume(input:{podId:\"aur3i91oqwwb2w\", gpuCount:1}) { id desiredStatus costPerHr } }"}'
 ```
 
 At $6.79/h this pod costs about **11 cents a minute whether or not it renders**. Stop it when idle.
