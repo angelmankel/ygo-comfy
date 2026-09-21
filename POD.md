@@ -4,7 +4,7 @@
 |---|---|
 | Pod id | `aur3i91oqwwb2w` (`ygo-comfy-5090-secure`, rented 2026-09-21) |
 | GPU | NVIDIA **RTX 5090** 32 GB, RunPod **secure** cloud, US, **$0.99/h** |
-| Endpoint | `http://74.2.96.53:12164` — Traefik repointed and serving |
+| Endpoint | `http://74.2.96.53:10012` — Traefik repointed and serving |
 | Disks | 30 GB container + **100 GB pod-local volume** on `/workspace`. Not a network volume: it is created with the pod and dies with it, so there is no standing storage bill and a *stop* keeps it. |
 | Auth | user `ygo`, password = `COMFY_LOCAL_TOKEN` |
 
