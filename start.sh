@@ -31,6 +31,30 @@ wd=/opt/ComfyUI/custom_nodes/ComfyUI-WD14-Tagger
 if [ -d "$wd" ] && [ ! -L "$wd/models" ]; then
   rm -rf "$wd/models"; ln -s "$MODELS_DIR/wd14_tagger" "$wd/models"
 fi
+# ---- ImageLabCore on the volume, so it can be changed without an image rebuild ------
+# Same trade the app already makes: a custom node baked into the image costs a ten minute build
+# and a pod resume for every one-line change. On the volume it can be written to while the pod
+# runs, and ComfyUI re-execs in place (POST /manager/reboot) to pick it up — about thirty seconds,
+# no container restart, no new port, Traefik untouched.
+#
+# Seeded from the image only when the volume copy is absent, exactly as live.py seeds the app: once
+# it exists, the volume is the truth and a later image never overwrites work in progress. To take
+# the image's version again, delete /workspace/ImageLabCore and restart.
+NODE_DIR=${YGO_NODE_DIR:-/workspace/ImageLabCore}
+BAKED=/opt/ComfyUI/custom_nodes/ImageLabCore
+if [ ! -d "$NODE_DIR" ]; then
+  mkdir -p "$NODE_DIR"
+  cp -a "$BAKED/." "$NODE_DIR"/ 2>/dev/null || true
+  echo "[start] seeded $NODE_DIR from the image"
+fi
+if [ ! -L "$BAKED" ]; then
+  rm -rf "$BAKED"
+  ln -s "$NODE_DIR" "$BAKED"
+fi
+# A .pyc from a previous boot shadows a file edited since; cheap to drop, confusing to debug.
+find "$NODE_DIR" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
+echo "[start] ImageLabCore: $BAKED -> $NODE_DIR"
+
 mkdir -p /workspace/ComfyUI/output /workspace/ComfyUI/input
 for d in output input; do
   if [ ! -L /opt/ComfyUI/$d ]; then

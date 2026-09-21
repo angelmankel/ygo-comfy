@@ -5,7 +5,7 @@ It is deliberately stdlib-only. Anything pip-installed would live in the image, 
 directory is that it changes without one. nginx already puts basic auth in front of every route, so there is no
 auth here; keep it that way by never exposing this port publicly.
 """
-import json, mimetypes, os, re, subprocess, threading, time, urllib.parse, urllib.request
+import json, mimetypes, os, re, shutil, subprocess, threading, time, urllib.parse, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -13,6 +13,10 @@ APP = Path(__file__).resolve().parent
 MODELS = Path(os.environ.get("MODELS_DIR", "/workspace/ComfyUI/models"))
 EXTRA = Path(os.environ.get("YGO_EXTRA_MANIFEST", "/workspace/models-extra.txt"))  # on the volume: survives a restart
 COMFY = f"http://127.0.0.1:{os.environ.get('COMFY_PORT', '8189')}"
+# ImageLabCore, on the volume and symlinked into ComfyUI's custom_nodes. Custom nodes normally live
+# in the image, which makes every one-line change a ten minute rebuild and a pod resume. Kept here
+# instead, it can be written to while the pod runs; ComfyUI then re-execs in place to pick it up.
+NODE = Path(os.environ.get("YGO_NODE_DIR", "/workspace/ImageLabCore"))
 PORT = int(os.environ.get("YGO_APP_PORT", "8190"))
 CIVITAI = os.environ.get("CIVITAI_API_KEY", "")
 
@@ -271,6 +275,17 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, f.read_bytes(), "text/plain; charset=utf-8")
             return self._json(200, {"files": sorted(str(f.relative_to(APP)) for f in APP.rglob("*")
                                                     if f.is_file() and "__pycache__" not in str(f))})
+        if p == "/api/node":                       # the same idea, pointed at the custom node
+            rel = q.get("path", [""])[0]
+            if rel:
+                f = (NODE / rel).resolve()
+                if not str(f).startswith(str(NODE.resolve())) or not f.is_file():
+                    return self._json(404, {"error": "no such file"})
+                return self._send(200, f.read_bytes(), "text/plain; charset=utf-8")
+            if not NODE.is_dir():
+                return self._json(404, {"error": f"{NODE} does not exist — is the pod on an image that seeds it?"})
+            return self._json(200, {"files": sorted(str(f.relative_to(NODE)) for f in NODE.rglob("*")
+                                                    if f.is_file() and "__pycache__" not in str(f))})
         return self._json(404, {"error": "not found"})
 
     # ---- POST / PUT --------------------------------------------------------
@@ -307,6 +322,20 @@ class H(BaseHTTPRequestHandler):
                 return self._json(400, {"error": "outside the app directory"})
             f.parent.mkdir(parents=True, exist_ok=True)
             f.write_bytes(self.rfile.read(int(self.headers.get("Content-Length", 0) or 0)))
+            return self._json(200, {"wrote": rel, "bytes": f.stat().st_size})
+        if p == "/api/node":
+            rel = q.get("path", [""])[0]
+            if not rel:
+                return self._json(400, {"error": "path required"})
+            f = (NODE / rel).resolve()
+            # resolve() first, then compare: a `..` or a symlink that climbs out must not be written.
+            if not str(f).startswith(str(NODE.resolve())):
+                return self._json(400, {"error": "outside the node directory"})
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_bytes(self.rfile.read(int(self.headers.get("Content-Length", 0) or 0)))
+            # A stale .pyc next to a rewritten .py is a genuinely confusing way to lose an hour.
+            for cache in NODE.rglob("__pycache__"):
+                shutil.rmtree(cache, ignore_errors=True)
             return self._json(200, {"wrote": rel, "bytes": f.stat().st_size})
         return self._json(404, {"error": "not found"})
 

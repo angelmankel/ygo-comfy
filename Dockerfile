@@ -83,6 +83,7 @@ RUN chmod +x /opt/ygo/download-models.sh /opt/ygo/start.sh
 
 ENV MODELS_DIR=/workspace/ComfyUI/models \
     YGO_APP_DIR=/workspace/ygo-app \
+    YGO_NODE_DIR=/workspace/ImageLabCore \
     YGO_APP_PORT=8190 \
     COMFY_PORT=8189 \
     PROXY_PORT=8188 \
