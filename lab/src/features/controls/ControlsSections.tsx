@@ -255,6 +255,96 @@ export function UpscaleModelSection() {
   );
 }
 
+/**
+ * Plain resize — interpolation only, no model.
+ *
+ * The upscale-model section reinterprets the picture: a neural upscaler invents detail that was
+ * not there, which is the point of it and also why it is the wrong tool when a picture is already
+ * right and simply needs to be a different size. This is the other one. It runs after the model
+ * upscale so it can land a 4x result on an exact number, and works alone as a pure resample.
+ */
+export function ResizeSection() {
+  const workflow = useStore(s => s.workflow);
+  const setWorkflow = useStore(s => s.setWorkflow);
+  const f = useControlFilter();
+  if (!f.matches('resize', 'scale', 'size', 'width', 'height', 'lanczos', 'bicubic', 'interpolate', 'resample'))
+    return null;
+
+  const enabled = workflow.resizeEnabled;
+  const byFactor = workflow.resizeMode !== 'size';
+  const summary = !enabled
+    ? 'off'
+    : byFactor
+      ? `×${Number(workflow.resizeScale).toFixed(2)} · ${workflow.resizeMethod}`
+      : `${workflow.resizeWidth} × ${workflow.resizeHeight} · ${workflow.resizeMethod}`;
+
+  return (
+    <ControlSection
+      id="resize"
+      title="Resize"
+      summary={summary}
+      forceOpen={f.active}
+      action={<Switch checked={enabled} onCheckedChange={(on) => setWorkflow({ resizeEnabled: on })} ariaLabel="Enable resize" />}
+    >
+      <p className="px-0.5 pb-1 text-[11px] text-fg-muted">
+        Resamples the finished image. No model, nothing invented — runs after the upscale model, so
+        it can land a 4× result on an exact size.
+      </p>
+      <div className={cn('flex flex-col gap-2 transition-opacity', !enabled && 'pointer-events-none opacity-50')}>
+        <Field label="Mode">
+          <div className="flex min-w-0 flex-1 overflow-hidden rounded-lg border border-border-default">
+            {([['factor', 'By factor'], ['size', 'Exact size']] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={(workflow.resizeMode ?? 'factor') === value}
+                onClick={() => setWorkflow({ resizeMode: value })}
+                className={cn(
+                  'min-h-[40px] flex-1 text-[12px] font-medium transition-colors',
+                  (workflow.resizeMode ?? 'factor') === value ? 'bg-accent text-white' : 'text-fg-muted hover:text-fg-secondary',
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </Field>
+
+        {byFactor ? (
+          <SliderRow
+            label="Scale"
+            value={workflow.resizeScale}
+            onChange={(v) => setWorkflow({ resizeScale: v })}
+            min={0.1} max={4} step={0.05}
+            format={(v) => `${v.toFixed(2)}×`}
+            defaultValue={2}
+            hint={`${Math.round(workflow.width * workflow.resizeScale)} × ${Math.round(workflow.height * workflow.resizeScale)} from the base size — the real input is whatever the passes produced.`}
+          />
+        ) : (
+          <>
+            <SliderRow label="Width"  value={workflow.resizeWidth}  onChange={(v) => setWorkflow({ resizeWidth: Math.round(v) })}  min={64} max={4096} step={8} defaultValue={1536} />
+            <SliderRow label="Height" value={workflow.resizeHeight} onChange={(v) => setWorkflow({ resizeHeight: Math.round(v) })} min={64} max={4096} step={8} defaultValue={1536}
+              hint="Aspect is not preserved — both numbers are taken literally." />
+          </>
+        )}
+
+        <Field label="Method">
+          <Select
+            value={workflow.resizeMethod ?? 'lanczos'}
+            onValueChange={(v) => setWorkflow({ resizeMethod: v as typeof workflow.resizeMethod })}
+            options={['lanczos', 'bicubic', 'bilinear', 'area', 'nearest-exact']}
+            ariaLabel="Resize method"
+          />
+        </Field>
+        <p className="px-0.5 text-[11px] text-fg-muted">
+          lanczos is sharpest and the right default. area is kinder when shrinking a long way;
+          nearest-exact keeps hard pixel edges, for pixel art.
+        </p>
+      </div>
+    </ControlSection>
+  );
+}
+
 export function RemoveBgSection() {
   const workflow = useStore(s => s.workflow);
   const setWorkflow = useStore(s => s.setWorkflow);

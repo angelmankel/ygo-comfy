@@ -325,6 +325,21 @@ export type WorkflowState = {
   passes: Pass[];
   upscaleEnabled: boolean;
   upscaleModel: string;
+  /**
+   * Plain resize of the finished image — interpolation only, no neural upscaler.
+   *
+   * Runs after the upscale model, which is the useful order: a 4x model always overshoots, so
+   * this is what lands the result on an exact size. It is also the whole post-process on its own
+   * when the picture just needs to be a different size and nothing should be reinterpreted.
+   */
+  resizeEnabled: boolean;
+  /** `factor` multiplies the current size; `size` goes to exact pixels. */
+  resizeMode: 'factor' | 'size';
+  resizeScale: number;
+  resizeWidth: number;
+  resizeHeight: number;
+  /** ComfyUI's interpolation kernels. lanczos is sharpest, nearest-exact keeps hard pixels. */
+  resizeMethod: 'nearest-exact' | 'bilinear' | 'area' | 'bicubic' | 'lanczos';
   removeBg: boolean;
 };
 

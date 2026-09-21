@@ -4,7 +4,7 @@ import { LibraryDrawer } from '@/features/layers/LibraryDrawer';
 import type { LayerKind } from '@/lib/types';
 import {
   SamplingSection, GenerationSection, OutputSection,
-  PassesSection, UpscaleModelSection, RemoveBgSection,
+  PassesSection, UpscaleModelSection, ResizeSection, RemoveBgSection,
 } from '@/features/controls/ControlsSections';
 import { GenerateButton } from '@/features/generate/GenerateButton';
 import { DenoiseField } from '@/features/controls/DenoiseField';
@@ -131,6 +131,7 @@ export function LeftPanel() {
                     fix. Upscale + Remove BG are independent and stay. */}
                 {!isLayerScope && <ErrorBoundary label="Passes"><PassesSection /></ErrorBoundary>}
                 <ErrorBoundary label="Upscale Model"><UpscaleModelSection /></ErrorBoundary>
+                <ErrorBoundary label="Resize"><ResizeSection /></ErrorBoundary>
                 <ErrorBoundary label="Remove Background"><RemoveBgSection /></ErrorBoundary>
               </ControlFilterProvider>
             )}

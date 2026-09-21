@@ -597,10 +597,10 @@ export function buildGraph(
       }};
       graph[`${upId}s`] = { class_type: "ImageScale", inputs: {
         image: [`${upId}u`, 0],
-        // This ComfyUI's ImageScale offers nearest-exact | bilinear | area | bicubic and nothing
-        // else — "lanczos" is rejected outright. bicubic is the best of those for the downscale
-        // that follows a 4x model, which always overshoots the target.
-        upscale_method: "bicubic",
+        // lanczos: the sharpest of the options for the downscale that always follows a 4x model.
+        // An earlier version of this line said bicubic because a truncated read of object_info
+        // appeared to show lanczos missing. It is there.
+        upscale_method: "lanczos",
         width: curW,
         height: curH,
         crop: "disabled",
@@ -665,6 +665,28 @@ export function buildGraph(
       image: img,
     }};
     img = ["10", 0];
+  }
+
+  // Plain resize. Deliberately after the model upscale: a 4x model produces whatever 4x happens to
+  // be, and this is what lands it on the size actually wanted. On its own it is a pure resample —
+  // nothing is reinterpreted, no model is loaded, and it costs a fraction of a second.
+  if (workflow.resizeEnabled) {
+    if (workflow.resizeMode === 'size') {
+      graph["12"] = { class_type: "ImageScale", inputs: {
+        image: img,
+        upscale_method: workflow.resizeMethod,
+        width: Math.max(8, Math.round(Number(workflow.resizeWidth) || 1024)),
+        height: Math.max(8, Math.round(Number(workflow.resizeHeight) || 1024)),
+        crop: "disabled",
+      }};
+    } else {
+      graph["12"] = { class_type: "ImageScaleBy", inputs: {
+        image: img,
+        upscale_method: workflow.resizeMethod,
+        scale_by: Math.max(0.05, Number(workflow.resizeScale) || 1),
+      }};
+    }
+    img = ["12", 0];
   }
 
   if (workflow.removeBg) {

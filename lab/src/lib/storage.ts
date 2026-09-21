@@ -345,6 +345,12 @@ export function defaultWorkflow(): WorkflowState {
     passes: [],
     upscaleEnabled: false,
     upscaleModel: '',
+    resizeEnabled: false,
+    resizeMode: 'factor',
+    resizeScale: 2,
+    resizeWidth: 1536,
+    resizeHeight: 1536,
+    resizeMethod: 'lanczos',
     removeBg: false,
   };
 }
