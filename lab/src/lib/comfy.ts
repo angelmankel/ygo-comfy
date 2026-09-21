@@ -579,11 +579,40 @@ export function buildGraph(
 
     const upId = `pU${idx}`;
     const kId  = `pK${idx}`;
-    graph[upId] = { class_type: "LatentUpscaleBy", inputs: {
-      samples: finalSamples,
-      upscale_method: "nearest-exact",
-      scale_by: effective,
-    }};
+
+    if (pass.upscaleMode === 'model') {
+      // Enlarge in PIXELS, not in latent space. A latent upscale interpolates between values that
+      // only mean something after decoding, so edges arrive soft and no amount of low-denoise
+      // resampling puts them back. Decoding, running a real upscaler, resizing to the target and
+      // re-encoding costs a VAE round trip and keeps the linework.
+      //
+      // The upscaler has its own fixed factor (4x-AnimeSharp is 4x whatever you ask for), so the
+      // ImageScale afterwards is what actually lands the pass on `effective`.
+      const model = pass.upscaleModel || workflow.upscaleModel || '';
+      graph[`${upId}d`] = { class_type: "VAEDecode", inputs: { samples: finalSamples, vae: vaeRef }};
+      graph[`${upId}l`] = { class_type: "UpscaleModelLoader", inputs: { model_name: model }};
+      graph[`${upId}u`] = { class_type: "ImageUpscaleWithModel", inputs: {
+        upscale_model: [`${upId}l`, 0],
+        image: [`${upId}d`, 0],
+      }};
+      graph[`${upId}s`] = { class_type: "ImageScale", inputs: {
+        image: [`${upId}u`, 0],
+        // This ComfyUI's ImageScale offers nearest-exact | bilinear | area | bicubic and nothing
+        // else — "lanczos" is rejected outright. bicubic is the best of those for the downscale
+        // that follows a 4x model, which always overshoots the target.
+        upscale_method: "bicubic",
+        width: curW,
+        height: curH,
+        crop: "disabled",
+      }};
+      graph[upId] = { class_type: "VAEEncode", inputs: { pixels: [`${upId}s`, 0], vae: vaeRef }};
+    } else {
+      graph[upId] = { class_type: "LatentUpscaleBy", inputs: {
+        samples: finalSamples,
+        upscale_method: "nearest-exact",
+        scale_by: effective,
+      }};
+    }
     const passSeed = pass.randomizeSeed
       ? Math.trunc(Math.random() * 0xFFFFFFFF)
       : Math.trunc(Number(pass.seed) || 0);

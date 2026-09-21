@@ -275,9 +275,11 @@ export function PassesSection() {
     <section className="flex flex-col gap-3">
       <SectionLabel label="PASSES" />
       <p className="px-1 text-[11px] text-fg-muted">
-        Pass 1 uses the Parameters tab. Each pass below latent-upscales the
-        previous output and resamples with its own params. Max output edge
-        clamps the scale down silently to prevent runaway resolutions.
+        Pass 1 uses the Parameters tab. Each pass below enlarges the previous
+        output and resamples with its own params. <strong className="font-semibold text-fg-secondary">Latent</strong> is
+        fast but softens edges; <strong className="font-semibold text-fg-secondary">Image</strong> decodes, runs a real
+        upscaler and re-encodes, which keeps linework. Max output edge clamps
+        the scale down silently to prevent runaway resolutions.
       </p>
       {(() => {
         // Best-effort starting dims: matches the same logic buildGraph uses so
@@ -326,6 +328,84 @@ export function PassesSection() {
         + Add pass
       </button>
     </section>
+  );
+}
+
+/**
+ * How a pass gets bigger: in latent space, or through a real upscaler in pixels.
+ *
+ * Latent is cheap and stays in the sampler's own space, but it interpolates values that only mean
+ * something once decoded, so edges come back soft. Pixel upscaling decodes, runs an image model,
+ * resizes and re-encodes — a VAE round trip for linework that survives. That is the difference
+ * between a hi-res pass that adds detail and one that just adds blur, so it is stated on the card
+ * rather than buried in a tooltip.
+ */
+function UpscaleModeRow({ index, pass, onChange }: {
+  index: number;
+  pass: Pass;
+  onChange: (patch: Partial<Pass>) => void;
+}) {
+  const server = useStore(s => s.server);
+  const upscaleAvail = useResourceAvailability('upscale');
+  const models = Array.isArray(server.upscaleModels) ? server.upscaleModels : [];
+  // Undefined means latent: passes saved before this control existed keep doing what they did.
+  const mode = pass.upscaleMode === 'model' ? 'model' : 'latent';
+
+  return (
+    <>
+      <Field label="Upscale">
+        <div className="flex min-w-0 flex-1 overflow-hidden rounded-lg border border-border-default">
+          {([['latent', 'Latent'], ['model', 'Image']] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={mode === value}
+              title={value === 'latent'
+                ? 'LatentUpscaleBy — fast, no VAE round trip, softens edges'
+                : 'Decode → upscale model → resize → re-encode. Keeps linework, costs a VAE round trip'}
+              onClick={() => onChange({
+                upscaleMode: value,
+                // Pick a model the first time, so switching to Image is not a dead end.
+                ...(value === 'model' && !pass.upscaleModel && models[0] ? { upscaleModel: models[0] } : {}),
+              })}
+              className={cn(
+                'min-h-[40px] flex-1 text-[12px] font-medium transition-colors',
+                mode === value ? 'bg-accent text-white' : 'text-fg-muted hover:text-fg-secondary',
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </Field>
+
+      {mode === 'model' && (
+        models.length > 0 ? (
+          <Field label="Model">
+            <select
+              aria-label={`Pass ${index} upscale model`}
+              value={pass.upscaleModel || models[0]}
+              onChange={(e) => onChange({ upscaleModel: e.target.value })}
+              className="min-h-[40px] w-full min-w-0 flex-1 truncate rounded-lg border border-border-default bg-bg-input px-3 py-2 text-[13px] text-fg-secondary outline-none hover:border-border-strong focus:border-accent"
+            >
+              {models.map(m => {
+                const a = upscaleAvail(m);
+                return (
+                  <option key={m} value={m} disabled={!a.enabled} title={availabilityHint(a)}>
+                    {m}
+                  </option>
+                );
+              })}
+            </select>
+          </Field>
+        ) : (
+          <p className="px-1 text-[11px] italic text-status-err">
+            No upscale models on the server — this pass will fail. Drop one in{' '}
+            <code className="font-mono">models/upscale_models/</code> or switch back to Latent.
+          </p>
+        )
+      )}
+    </>
   );
 }
 
@@ -417,6 +497,7 @@ function PassCard({ index, pass, inDims, outDims, effectiveScale, onChange, onRe
       <SliderRow label="Steps"   value={pass.steps}   onChange={(v) => onChange({ steps: v })}   min={1} max={200} />
       <SliderRow label="CFG"     value={pass.cfg}     onChange={(v) => onChange({ cfg: v })}     min={0} max={30} step={0.1} format={(v) => v.toFixed(1)} />
       <SliderRow label="Denoise" value={pass.denoise} onChange={(v) => onChange({ denoise: v })} min={0} max={1} step={0.01} format={(v) => v.toFixed(2)} />
+      <UpscaleModeRow index={index} pass={pass} onChange={onChange} />
       <SliderRow label="Scale"   value={pass.scale}   onChange={(v) => onChange({ scale: v })}   min={1} max={4} step={0.05} format={(v) => `${v.toFixed(2)}×`} />
       <p className="-mt-1 px-1 text-[11px] text-fg-muted">
         {inDims.w}×{inDims.h} → <span className="text-fg-secondary">{outDims.w}×{outDims.h}</span>

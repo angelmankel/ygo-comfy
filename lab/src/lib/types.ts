@@ -221,6 +221,19 @@ export type Pass = {
   scale: number;
   /** Hard cap on this pass's output long edge in pixels. */
   maxEdge: number;
+  /**
+   * How this pass gets bigger before it resamples.
+   *
+   *  - `latent` — LatentUpscaleBy, the original behaviour. Cheap, stays in latent space, and
+   *    softens linework badly: bislerp does not know what an edge is.
+   *  - `model`  — decode to pixels, run a real upscaler (4x-AnimeSharp and friends), resize to the
+   *    target, re-encode. Costs a VAE round trip and keeps the lines.
+   *
+   * Undefined = `latent`, so passes saved before this existed behave exactly as they did.
+   */
+  upscaleMode?: 'latent' | 'model';
+  /** Which upscale model to use when `upscaleMode === 'model'`. Empty = the server's first. */
+  upscaleModel?: string;
   /** When false, this pass is bypassed — buildGraph skips it as if it weren't
    *  in the list, and downstream passes flow from the previous active pass.
    *  Undefined = on (back-compat with passes persisted before the toggle). */
