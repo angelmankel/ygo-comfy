@@ -4,7 +4,7 @@
 |---|---|
 | Pod id | `aur3i91oqwwb2w` (`ygo-comfy-5090-secure`, rented 2026-09-21) |
 | GPU | NVIDIA **RTX 5090** 32 GB, RunPod **secure** cloud, US, **$0.99/h** |
-| Endpoint | `http://74.2.96.53:10012` — Traefik repointed and serving |
+| Endpoint | `http://74.2.96.53:12322` — Traefik repointed and serving |
 | Disks | 30 GB container + **100 GB pod-local volume** on `/workspace`. Not a network volume: it is created with the pod and dies with it, so there is no standing storage bill and a *stop* keeps it. |
 | Auth | user `ygo`, password = `COMFY_LOCAL_TOKEN` |
 
@@ -19,7 +19,23 @@ reported **zero** 5090s in every US datacentre — but an A40, which reports Hig
 also came back empty from the same query, so it is not to be trusted. Deploying with
 `cloudType: SECURE, countryCode: "US"` found one immediately.
 
-## Installing a custom node on a pod that is already running
+## Changing the custom node on a running pod
+
+`scratchpad/push-node.sh <ip:port>` — pushes `~/Github/ImageLabCore` and restarts ComfyUI in
+place. Measured: **fifteen seconds** for twenty-one files, including a route that did not exist
+before the push. No image rebuild, no container restart, no port change, Traefik untouched.
+
+It works because two things are true. ImageLabCore lives on the volume and is symlinked into
+`custom_nodes` (start.sh), so it can be written to while the pod runs. And ComfyUI-Manager's
+`POST /manager/reboot` ends in `os.execv` — an in-place re-exec, so ComfyUI (which is PID 1 here)
+is replaced without the container going down. Because it is a full restart rather than a live
+patch, adding a route is no different from changing one.
+
+The app has the same arrangement already: `scratchpad/push.sh <ip:port>`. Note that both are
+seeded from the image only when the volume copy is absent — after a resume onto a new image, the
+volume's older copy is still what runs, so push it.
+
+## What did NOT work, before that existed
 
 You cannot, on this image, and it is worth knowing why before trying again:
 
