@@ -4,6 +4,7 @@ set -euo pipefail
 MODELS_DIR=${MODELS_DIR:-/workspace/ComfyUI/models}
 COMFY_PORT=${COMFY_PORT:-8189}
 PROXY_PORT=${PROXY_PORT:-8188}
+APP_PORT=${YGO_APP_PORT:-8190}
 COMFY_AUTH_USER=${COMFY_AUTH_USER:-ygo}
 COMFY_ARGS=${COMFY_ARGS:-}
 
@@ -41,7 +42,7 @@ done
 # ---- reverse proxy with basic auth --------------------------------------------------
 mkdir -p /tmp/nginx-body /tmp/nginx-proxy /tmp/nginx-fastcgi /tmp/nginx-uwsgi /tmp/nginx-scgi
 printf '%s:%s\n' "$COMFY_AUTH_USER" "$(openssl passwd -apr1 "$COMFY_AUTH_TOKEN")" > /tmp/htpasswd
-sed -e "s/\${PROXY_PORT}/$PROXY_PORT/g" -e "s/\${COMFY_PORT}/$COMFY_PORT/g" /opt/ygo/nginx.conf.template > /tmp/nginx.conf
+sed -e "s/\${PROXY_PORT}/$PROXY_PORT/g" -e "s/\${COMFY_PORT}/$COMFY_PORT/g" -e "s/\${APP_PORT}/$APP_PORT/g" /opt/ygo/nginx.conf.template > /tmp/nginx.conf
 nginx -c /tmp/nginx.conf &
 echo "[start] nginx listening on 0.0.0.0:$PROXY_PORT (basic auth user '$COMFY_AUTH_USER') -> 127.0.0.1:$COMFY_PORT"
 
@@ -64,6 +65,10 @@ if [ "${SKIP_MODEL_DOWNLOAD:-0}" != 1 ]; then
     echo "[models] ===== GAVE UP after ${DOWNLOAD_ATTEMPTS:-20} attempts ====="
   ) 2>&1 | tee -a "$LOG_DIR/download.log" &
 fi
+
+# ---- the live app on the volume (hot reload; only this supervisor is baked) ----------------------
+python /opt/ygo/live.py 2>&1 | sed -u 's/^/[app] /' &
+echo "[start] live app supervisor on 127.0.0.1:$APP_PORT, code at ${YGO_APP_DIR:-/workspace/ygo-app} (served at /ygo/app)"
 
 # ---- ComfyUI ----------------------------------------------------------------------------------
 cd /opt/ComfyUI

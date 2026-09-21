@@ -67,10 +67,13 @@ RUN pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 \
     && python -c "import onnxruntime as ort, sys; p=ort.get_available_providers(); print('ort', ort.__version__, p); sys.exit(0 if 'CUDAExecutionProvider' in p else 1)"
 
 # ---- Runtime files --------------------------------------------------------------
-COPY models.txt download-models.sh start.sh nginx.conf.template /opt/ygo/
+COPY models.txt download-models.sh start.sh nginx.conf.template live.py /opt/ygo/
+COPY app /opt/ygo/app
 RUN chmod +x /opt/ygo/download-models.sh /opt/ygo/start.sh
 
 ENV MODELS_DIR=/workspace/ComfyUI/models \
+    YGO_APP_DIR=/workspace/ygo-app \
+    YGO_APP_PORT=8190 \
     COMFY_PORT=8189 \
     PROXY_PORT=8188 \
     COMFY_AUTH_USER=ygo

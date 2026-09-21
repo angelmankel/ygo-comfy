@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ygo pod</title>
+<style>
+  :root { --bg:#12131a; --card:#1b1d27; --line:#2b2e3c; --ink:#e7e9f3; --dim:#9aa0b8; --accent:#7aa2ff; --ok:#54d18c; --bad:#ff6b6b; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 ui-sans-serif,system-ui,sans-serif; }
+  header { padding:20px 16px; border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:baseline; flex-wrap:wrap; }
+  h1 { font-size:18px; margin:0; font-weight:650; }
+  .dim { color:var(--dim); font-size:13px; }
+  main { max-width:920px; margin:0 auto; padding:16px; display:grid; gap:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  h2 { font-size:14px; margin:0 0 12px; font-weight:600; letter-spacing:.02em; text-transform:uppercase; color:var(--dim); }
+  input, select, button, textarea { font:inherit; color:var(--ink); background:#131520; border:1px solid var(--line); border-radius:8px; padding:9px 11px; }
+  input, textarea { width:100%; }
+  button { background:var(--accent); color:#0b0d14; border:0; font-weight:650; cursor:pointer; }
+  button.ghost { background:#232635; color:var(--ink); font-weight:500; }
+  button:disabled { opacity:.5; cursor:default; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .row > * { flex:1 1 160px; }
+  .row > button { flex:0 0 auto; }
+  pre { background:#0d0f16; border:1px solid var(--line); border-radius:8px; padding:10px; overflow:auto; font-size:12px; margin:8px 0 0; max-height:220px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  td, th { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); }
+  th { color:var(--dim); font-weight:500; }
+  .bar { height:6px; background:#0d0f16; border-radius:99px; overflow:hidden; }
+  .bar > i { display:block; height:100%; background:var(--accent); width:0; transition:width .3s; }
+  .ok { color:var(--ok); } .bad { color:var(--bad); }
+  details summary { cursor:pointer; color:var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <h1>ygo pod</h1>
+  <span class="dim">install models · edit this app live</span>
+</header>
+<main>
+  <section class="card">
+    <h2>Install a model</h2>
+    <div class="row">
+      <input id="src" placeholder="civitai link, version id, or any direct URL">
+      <button id="look" class="ghost">Look up</button>
+    </div>
+    <div id="found" class="dim" style="margin-top:10px"></div>
+    <div class="row" style="margin-top:10px">
+      <select id="folder"></select>
+      <input id="filename" placeholder="filename on disk">
+      <button id="go">Install</button>
+    </div>
+    <div id="jobs"></div>
+  </section>
+
+  <section class="card">
+    <h2>On the volume</h2>
+    <div id="inv" class="dim">loading…</div>
+    <details style="margin-top:10px">
+      <summary>Lines to copy into ygo-comfy/models.txt</summary>
+      <pre id="extra">nothing added yet</pre>
+    </details>
+  </section>
+
+  <section class="card">
+    <h2>Edit this app <span class="dim" style="text-transform:none">— saves to the volume, restarts in a second</span></h2>
+    <div class="row">
+      <select id="file"></select>
+      <button id="load" class="ghost">Open</button>
+      <button id="save">Save</button>
+    </div>
+    <textarea id="code" rows="14" spellcheck="false" style="margin-top:10px; font-family:ui-monospace,monospace; font-size:12px"></textarea>
+    <div id="saved" class="dim" style="margin-top:8px"></div>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const api = (p, o) => fetch("/ygo/app" + p, o).then(r => r.json());
+const mb = (n) => n >= 1e9 ? (n/1073741824).toFixed(2)+" GB" : (n/1048576).toFixed(1)+" MB";
+
+async function refresh() {
+  const s = await api("/api/state");
+  if (!$("folder").options.length) for (const f of s.folders) $("folder").add(new Option(f, f));
+  $("inv").innerHTML = "<table><tr><th>folder</th><th>file</th><th>size</th></tr>" +
+    Object.entries(s.models).flatMap(([f, list]) => list.map(m =>
+      `<tr><td class="dim">${f}</td><td>${m.name}</td><td class="dim">${mb(m.bytes)}</td></tr>`)).join("") + "</table>";
+  $("extra").textContent = (s.extra || []).filter(l => l && !l.startsWith("#")).join("\n") || "nothing added yet";
+  const jobs = Object.values(s.jobs || {}).sort((a,b) => b.id - a.id);
+  $("jobs").innerHTML = jobs.map(j => `
+    <div style="margin-top:12px">
+      <div class="row" style="justify-content:space-between">
+        <strong>${j.filename}</strong>
+        <span class="${j.state === "done" ? "ok" : j.state === "error" ? "bad" : "dim"}">${j.state} ${j.pct || 0}%</span>
+      </div>
+      <div class="bar"><i style="width:${j.pct || 0}%"></i></div>
+      ${j.log?.length ? `<details><summary>log</summary><pre>${j.log.slice(-12).join("\n").replace(/</g,"&lt;")}</pre></details>` : ""}
+    </div>`).join("");
+  if (jobs.some(j => j.state === "downloading" || j.state === "starting")) setTimeout(refresh, 1500);
+}
+
+$("look").onclick = async () => {
+  $("found").textContent = "looking…";
+  const r = await api("/api/resolve?src=" + encodeURIComponent($("src").value));
+  if (r.error) return $("found").innerHTML = `<span class="bad">${r.error}</span>`;
+  $("filename").value = r.filename || "";
+  $("found").textContent = `${r.model || "?"} ${r.version || ""} · ${r.filename} · ${r.size ? mb(r.size) : "size unknown"} ${r.base ? "· " + r.base : ""}`;
+};
+$("go").onclick = async () => {
+  $("go").disabled = true;
+  await api("/api/install", { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ src: $("src").value, folder: $("folder").value, filename: $("filename").value }) });
+  $("go").disabled = false;
+  refresh();
+};
+async function files() {
+  const r = await api("/api/files");
+  $("file").innerHTML = "";
+  for (const f of r.files) $("file").add(new Option(f, f));
+}
+$("load").onclick = async () => {
+  const r = await fetch("/ygo/app/api/files?path=" + encodeURIComponent($("file").value));
+  $("code").value = await r.text();
+  $("saved").textContent = "";
+};
+$("save").onclick = async () => {
+  const r = await fetch("/ygo/app/api/files?path=" + encodeURIComponent($("file").value),
+    { method: "PUT", body: $("code").value });
+  const j = await r.json();
+  $("saved").textContent = j.error ? j.error : `saved ${j.wrote} (${j.bytes} bytes) — the app is restarting`;
+};
+files(); refresh();
+</script>
+</body>
+</html>
