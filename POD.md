@@ -2,14 +2,77 @@
 
 | | |
 |---|---|
-| Pod id | `mik3v4g9kk3er8` (`ygo-comfy-a100`, created 2026-09-20) |
-| GPU | NVIDIA A100 80GB PCIe, RunPod **secure** cloud, $1.59/h |
-| Endpoint | `http://216.81.151.3:10695`, fronted by Traefik at `https://comfyui-ygo.blueoceanswim.com/` |
-| Volume | 100 GB on `/workspace`; the manifest's 58 files verified 2026-09-20 |
+| Pod id | `2wkq26rkp2mgbe` (`characteristic_emerald_alligator`, rented 2026-09-21) |
+| GPU | NVIDIA **B200** 180 GB, RunPod secure cloud, US-CA-2, **$6.79/h** |
+| Endpoint | `http://38.80.152.146:30246` — point Traefik at this for `https://comfyui-ygo.blueoceanswim.com/` |
+| Volume | **network** volume on `/workspace`; the manifest's 58 files verified 2026-09-21 |
 | Auth | user `ygo`, password = `COMFY_LOCAL_TOKEN` (reused from the previous pod) |
+| App | `~/Github/ygo-comfy/app` pushed 2026-09-21; `/`, `/lab/`, `/ygo/app/` and `/ygo/app/lab/` all answer 200 with correct MIME types |
 
-Every earlier pod below is terminated. The rest of this file — the GraphQL for stop / resume /
-terminate / recreate — still applies; substitute the pod id above.
+Do not ask a Blackwell pod for `volumeInGb` — it has no local disk and the deploy is refused. A
+network volume is the only way, and it is also why a resume is cheap: the 58 models stay put.
+
+## Benchmark, 2026-09-21 (`scratchpad/bench.ts 38.80.152.146:30246 twopass`)
+
+The same two-pass graph the A100 ran (`cardart-hires-illustrious` at commit `2e74f30`: base 40 →
+latent 1.25x → hires 45, one decode, seed 98).
+
+| | A100 80 GB | B200 180 GB |
+|---|---|---|
+| Whole prompt, cold | — | **139.5 s** |
+| Sampling alone | — | ~7 s per pass (22 steps at 3.2 it/s), so ~14 s for both |
+| Comparable A100 figure | 14.5 s | |
+
+The GPU is not the 139.5 s. Sampling is ~14 s, which is the A100's whole number; the other ~125 s
+is the four checkpoints and three LoRAs arriving cold off the network volume. The log shows the
+second pass asking to load SDXL at 05:41:48 and finishing a 7-second sample at 05:42:43 — 48
+seconds of that minute was loading.
+
+Two things make that load slow, and both are worth chasing before trusting any B200 number:
+
+1. **`comfy-aimdo` is staging instead of resident-loading.** Every checkpoint logs "prepared for
+   dynamic VRAM loading … 4896MB Staged", and the run threw 89 `hostbuf_grow` errors trying to
+   grow a fixed ~10.28 GB host buffer. On a card with 191 GB of free VRAM there is nothing to
+   offload; the staging is pure overhead.
+2. **A network volume is not a local disk.** It is why Blackwell deploys work at all, and it is
+   also why a cold checkpoint read is slow.
+
+A warm re-run would separate the two, and was not spent: the brief was one render.
+
+## The live pod's own commands
+
+These carry the live id. A recipe that asks you to substitute a pod id by hand is a recipe for
+stopping the wrong pod, so the id is written in, and the general forms live further down with the
+pod they were written for.
+
+Read the address again — **it changes on every resume**:
+
+```sh
+curl -s https://api.runpod.io/graphql -H "Authorization: Bearer $RUNPOD_API_KEY" -H 'Content-Type: application/json' \
+  -d '{"query":"{ pod(input:{podId:\"2wkq26rkp2mgbe\"}) { desiredStatus runtime { uptimeInSeconds ports { ip isIpPublic privatePort publicPort type } } } }"}' \
+  | jq '.data.pod.runtime.ports[] | select(.type=="tcp")'
+```
+
+Then repoint Traefik, push the app again (`scratchpad/push.sh <ip:port>`), and follow the .env
+rule below: comment the domain line, add the ip:port under it, never delete the domain line.
+
+Stop it (keeps the network volume and the 58 models; no GPU billing):
+
+```sh
+curl -s https://api.runpod.io/graphql -H "Authorization: Bearer $RUNPOD_API_KEY" -H 'Content-Type: application/json' \
+  -d '{"query":"mutation { podStop(input:{podId:\"2wkq26rkp2mgbe\"}) { id desiredStatus } }"}'
+```
+
+Resume it (models are already on the volume, so this is fast and cheap):
+
+```sh
+curl -s https://api.runpod.io/graphql -H "Authorization: Bearer $RUNPOD_API_KEY" -H 'Content-Type: application/json' \
+  -d '{"query":"mutation { podResume(input:{podId:\"2wkq26rkp2mgbe\", gpuCount:1}) { id desiredStatus costPerHr } }"}'
+```
+
+At $6.79/h this pod costs about **11 cents a minute whether or not it renders**. Stop it when idle.
+
+Every earlier pod below is terminated; their sections are kept for the facts they cost.
 
 ## Older: RTX 5090 pod (terminated)
 
