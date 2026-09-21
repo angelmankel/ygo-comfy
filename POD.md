@@ -6,7 +6,7 @@
 | GPU | NVIDIA GeForce RTX 5090 (32 GB), RunPod **community** cloud, location SK |
 | Price | $0.69/h while running; volume storage is billed while the pod exists (also when stopped) |
 | Image | `ghcr.io/angelmankel/ygo-comfy:latest` |
-| Disks | 30 GB container, 80 GB volume on `/workspace` (models + input/output live there) |
+| Disks | 30 GB container, 80 GB volume on `/workspace` (models + input/output live there). The manifest is now ~62 GB — a fresh pod should take **100 GB**. |
 | ComfyUI endpoint (TCP, the real one) | `http://87.197.126.165:40379` - plain HTTP, basic auth user `ygo`, password = `COMFY_LOCAL_TOKEN` in ygo-art-studio/.env |
 | RunPod HTTP proxy | `https://rq6z6e1djo9sbn-8188.proxy.runpod.net` - **currently answers 404**: with `8188/http,8188/tcp` both requested, RunPod mapped the http side to a bogus private port. It goes through Cloudflare anyway, which drops long WebSocket connections, so do not rely on it. |
 | Download log | `http://87.197.126.165:40379/ygo/logs/download.log` (same auth); `/ygo/logs/models-complete` exists once every model verified |
@@ -53,11 +53,13 @@ curl -s https://api.runpod.io/graphql -H "Authorization: Bearer $RUNPOD_API_KEY"
 ```sh
 TOKEN=$(openssl rand -hex 16)
 curl -s https://api.runpod.io/graphql -H "Authorization: Bearer $RUNPOD_API_KEY" -H 'Content-Type: application/json' \
-  -d "{\"query\":\"mutation { podFindAndDeployOnDemand(input: { cloudType: COMMUNITY, gpuCount: 1, volumeInGb: 80, containerDiskInGb: 30, minVcpuCount: 4, minMemoryInGb: 16, gpuTypeId: \\\"NVIDIA GeForce RTX 5090\\\", name: \\\"ygo-comfy\\\", imageName: \\\"ghcr.io/angelmankel/ygo-comfy:latest\\\", dockerArgs: \\\"\\\", ports: \\\"8188/tcp\\\", volumeMountPath: \\\"/workspace\\\", env: [{ key: \\\"CIVITAI_API_KEY\\\", value: \\\"$CIVITAI_API_KEY\\\" }, { key: \\\"COMFY_AUTH_TOKEN\\\", value: \\\"$TOKEN\\\" }] }) { id costPerHr machine { gpuDisplayName } } }\"}"
+  -d "{\"query\":\"mutation { podFindAndDeployOnDemand(input: { cloudType: COMMUNITY, gpuCount: 1, volumeInGb: 100, containerDiskInGb: 30, minVcpuCount: 4, minMemoryInGb: 16, gpuTypeId: \\\"NVIDIA GeForce RTX 5090\\\", name: \\\"ygo-comfy\\\", imageName: \\\"ghcr.io/angelmankel/ygo-comfy:latest\\\", dockerArgs: \\\"\\\", ports: \\\"8188/tcp\\\", volumeMountPath: \\\"/workspace\\\", env: [{ key: \\\"CIVITAI_API_KEY\\\", value: \\\"$CIVITAI_API_KEY\\\" }, { key: \\\"COMFY_AUTH_TOKEN\\\", value: \\\"$TOKEN\\\" }] }) { id costPerHr machine { gpuDisplayName } } }\"}"
 ```
 
-Use `cloudType: SECURE` ($0.99/h) if community has no 5090. Model download on a fresh volume took about
-2 minutes on this host (~19 GB). Then read the TCP port as above and update `.env`.
+Use `cloudType: SECURE` ($0.99/h) if community has no 5090. Then read the TCP port as above and update `.env`.
+
+The manifest is ~62 GB on a fresh volume (it was ~19 GB when the first pod was built, ~46 GB after the
+anime-workstation pass). Budget 5-10 minutes for the first boot; a resume re-downloads nothing.
 
 ## Cost log
 
@@ -75,3 +77,23 @@ Use `cloudType: SECURE` ($0.99/h) if community has no 5090. Model download on a 
   was repointed at it; `.env` uses the domain.
 - Stop / resume / terminate: same mutations as above with `podId:"4fgj4rhklpi255"`. Two pods stopped still bill their volumes.
 - .env rule: when the address changes, COMMENT the domain line and add the ip:port below it — never delete the domain line.
+
+## 2026-09-20: the card-art stack is in the manifest
+
+`cardart-hires-illustrious` is the workflow the app actually renders with, and three of its four
+checkpoints plus its retro LoRA were only ever on Comfy Cloud — a pod could not run it. They are in
+`models.txt` now, pulled from the same Civitai versions the cloud assets were imported from:
+
+| File | Civitai version | Bytes |
+|---|---|---|
+| `wai-illustrious-sdxl.safetensors` | 2167369 | 6938040682 |
+| `hexus_etnix.safetensors` | 2938105 | 6938041520 |
+| `spicySouls_12.safetensors` | 3321542 | 6938042794 |
+| `retro_scifi_artstyle_illustriousXL-000021.safetensors` | 1021743 | 228460796 |
+
+Sizes were read from the download's own `Content-Range`, so `download-models.sh` will not re-fetch them
+on every boot. Civitai answers **403 to HEAD** on these files and 200 to a normal GET with
+`?token=` — do not "fix" a HEAD check that looks broken.
+
+Manifest total: ~62 GB, 58 files. Both pods were stopped or gone when this was written, so it is
+verified against the pinned ComfyUI commit and the Civitai endpoints, not against a live pod.

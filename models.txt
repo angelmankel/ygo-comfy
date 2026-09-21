@@ -3,10 +3,18 @@
 # Sizes come from Comfy Cloud's asset listing / Hugging Face headers and are used to skip finished files.
 
 # --- Illustrious (SDXL) workflow ---
+# cardart-hires-illustrious is the working card-art workflow: pass 1 on plain WAI (no lora, no merge) decides the
+# composition, then the latent is upscaled 1.25x and repainted by pass 2 on the style stack below. All five files
+# are required by it; the names are the ones the graphs ask for, which are Comfy Cloud's names, not Civitai's
+# (wai-illustrious-sdxl.safetensors is Civitai's waiIllustriousSDXL_v150.safetensors renamed on download).
+civitai:2167369	checkpoints	wai-illustrious-sdxl.safetensors	6938040682
 civitai:1023901	checkpoints	illustriousXLPersonalMerge_v30Noob10based.safetensors	6938042190
+civitai:2938105	checkpoints	hexus_etnix.safetensors	6938041520
+civitai:3321542	checkpoints	spicySouls_12.safetensors	6938042794
 civitai:1675894	loras	Yu-Gi-Oh_Kagami_Takahiro_Style.safetensors	228463172
 civitai:1480107	loras	Yugioh_GX_Illustrious_X1_SD8.safetensors	170627948
 civitai:1736373	loras	illustrious-detailer.safetensors	228465628
+civitai:1021743	loras	retro_scifi_artstyle_illustriousXL-000021.safetensors	228460796
 https://huggingface.co/TencentARC/t2i-adapter-lineart-sdxl-1.0/resolve/main/diffusion_pytorch_model.fp16.safetensors	controlnet	TencentARC__t2i-adapter-lineart-sdxl-10__diffusion_pytorch_model.fp16.safetensors	158060440
 https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth	upscale_models	RealESRGAN_x4plus_anime_6B.pth	17938799
 https://huggingface.co/Kim2091/UltraSharp/resolve/main/4x-UltraSharp.pth	upscale_models	4x-UltraSharp.pth	66961958
@@ -78,4 +86,3 @@ https://huggingface.co/SmilingWolf/wd-eva02-large-tagger-v3/resolve/main/selecte
 
 # --- Upscalers (2x-AnimeJaNai has no stable HF home; skipped) ---
 https://huggingface.co/Kim2091/AnimeSharp/resolve/main/4x-AnimeSharp.pth	upscale_models	4x-AnimeSharp.pth	67010245
-https://huggingface.co/Kim2091/UltraSharp/resolve/main/4x-UltraSharp.pth	upscale_models	4x-UltraSharp.pth	66961958
