@@ -8,8 +8,10 @@ import {
   InfiniteViewIcon,
   ModelBrowserIcon,
   SettingsIcon,
+  SparkleIcon,
 } from '@/components/ui/icons';
 import { useCanvasStore } from '@/lib/canvasStore';
+import { useFocusMode } from '@/features/studio/StudioView';
 import type { MainView } from '@/lib/canvasStore';
 import type { Server } from '@/lib/storage';
 
@@ -39,6 +41,10 @@ export function Sidebar({
     setComfyServerId(id);
     setMainView('comfy');
   };
+
+  // Focus mode is Studio's promise: no node graph unless you ask for one. It hides the per-server
+  // ComfyUI buttons, and it is always on for a phone.
+  const focusMode = useFocusMode();
 
   return (
     <nav className="relative z-[70] flex h-full w-[52px] shrink-0 flex-col items-center gap-3 border-r border-border-subtle bg-bg-panel py-3">
@@ -83,12 +89,19 @@ export function Sidebar({
           label="Browse models"
           icon={<ModelBrowserIcon size={16} />}
         />
+        <ViewButton
+          view="studio"
+          current={mainView}
+          onSelect={setMainView}
+          label="Studio"
+          icon={<SparkleIcon size={16} />}
+        />
       </div>
 
       {/* One ComfyUI button per server — each is a view switcher
           (mainView='comfy' + the server's id). Active treatment when this
           server's ComfyUI is the current view. */}
-      {servers.length > 0 && (
+      {servers.length > 0 && !focusMode && (
         <div className="mt-1 flex w-full flex-col items-center gap-1.5 border-t border-border-subtle pt-3">
           {servers.map((s, i) => {
             const active = mainView === 'comfy' && comfyServerId === s.id;

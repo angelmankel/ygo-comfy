@@ -973,3 +973,90 @@ export function connectComfyWs(host: string, handlers: {
     ws?.close();
   };
 }
+
+// ─── Studio: saved workflows and raw-graph submission ───────────────────────
+//
+// The generate view builds one fixed graph out of WorkflowState. Studio does the opposite: it
+// takes whatever workflow the person built in ComfyUI and submits that. These are the two ends
+// of that path, kept here so every fetch to a ComfyUI host still goes through one module.
+
+/** One saved workflow as ComfyUI's userdata API lists it. */
+export interface SavedWorkflow {
+  /** Path under the workflows dir, e.g. `portrait.json` or `wip/portrait.json`. */
+  path: string;
+  /** Leaf name without the extension — what the ComfyUI tab is called. */
+  name: string;
+  /** Epoch ms of the last save, when the server reports it. Drives change detection. */
+  modified: number;
+}
+
+/**
+ * List the workflows saved in ComfyUI on this host.
+ *
+ * ComfyUI writes every saved workflow under its `userdata` store, which is the only place the
+ * running editor's work is readable from outside the browser tab. Polling this is what makes
+ * "build it in ComfyUI and it shows up here" true without ComfyUI having to tell us anything.
+ *
+ * An empty list is a normal answer: the endpoint 404s with "Directory not found" until the person
+ * saves for the first time, so that case is not an error.
+ */
+export async function listSavedWorkflows(host: string): Promise<SavedWorkflow[]> {
+  const url = `${comfyHttpFor(host)}/api/userdata?dir=workflows&recurse=true&full_info=true`;
+  const res = await fetch(url);
+  if (res.status === 404) return [];
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const rows = await res.json();
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((r: unknown) => {
+      // full_info=true gives objects; without it the API returns bare strings. Accept both so a
+      // slightly older ComfyUI still lists.
+      const path = typeof r === 'string' ? r : String((r as { path?: string }).path ?? '');
+      const modified = typeof r === 'string' ? 0 : Number((r as { modified?: number }).modified ?? 0);
+      return { path, name: path.replace(/^.*\//, '').replace(/\.json$/i, ''), modified };
+    })
+    .filter(w => w.path.toLowerCase().endsWith('.json'))
+    .sort((a, b) => b.modified - a.modified || a.name.localeCompare(b.name));
+}
+
+/** Fetch one saved workflow's editor JSON. `path` is as `listSavedWorkflows` reported it. */
+export async function loadSavedWorkflow(host: string, path: string): Promise<unknown> {
+  // The userdata file API takes the whole path as ONE encoded segment — the slash inside it must
+  // stay escaped or the server reads it as a directory boundary and 404s.
+  const id = encodeURIComponent(`workflows/${path}`);
+  const res = await fetch(`${comfyHttpFor(host)}/api/userdata/${id}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Submit an already-built API graph. The generate view's `queuePrompt` owns compiling prompts and
+ * uploading images; Studio has a graph already and needs none of that, so this is the thin path.
+ * It reuses `clientId` so the existing websocket sees progress for these jobs too.
+ */
+export async function queueGraph(
+  host: string,
+  graph: Record<string, unknown>,
+): Promise<{ ok: true; promptId: string } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(`${comfyHttpFor(host)}/prompt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: graph, client_id: clientId }),
+    });
+    const json = await res.json();
+    if (json.error) {
+      // ComfyUI reports a bad graph as {error, node_errors}. The node errors say which widget is
+      // wrong, which is exactly what a person tuning exposed params needs to see.
+      const detail = json.node_errors && Object.keys(json.node_errors).length
+        ? ` (${Object.entries(json.node_errors as Record<string, { errors?: { message?: string }[] }>)
+            .map(([id, e]) => `node ${id}: ${e.errors?.[0]?.message ?? 'invalid'}`).join('; ')})`
+        : '';
+      return { ok: false, error: (json.error.message || JSON.stringify(json.error)) + detail };
+    }
+    if (json.prompt_id) return { ok: true, promptId: json.prompt_id };
+    return { ok: false, error: 'Queue rejected' };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}

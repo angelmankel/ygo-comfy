@@ -6,6 +6,7 @@ import { CanvasToolbar } from '@/features/canvas/CanvasToolbar';
 import { CollectionsView } from '@/features/collections';
 import { ModelBrowserView } from '@/features/browser';
 import { ComfyView } from '@/features/comfy/ComfyView';
+import { StudioView } from '@/features/studio/StudioView';
 import { AppSidePanels } from './AppSidePanels';
 import { CanvasTopNav } from './CanvasTopNav';
 import { GenerateTopNav } from './GenerateTopNav';
@@ -43,6 +44,15 @@ export function MainView({
     return (
       <ErrorBoundary label="Model browser">
         <ModelBrowserView />
+      </ErrorBoundary>
+    );
+  }
+  if (mainView === 'studio') {
+    // Studio is a self-contained shell: it brings its own layout on both desktop and phone, and
+    // shares none of the canvas chrome below.
+    return (
+      <ErrorBoundary label="Studio">
+        <StudioView />
       </ErrorBoundary>
     );
   }

@@ -119,15 +119,19 @@ const persistDefaultLayerSize = (s: DefaultLayerSize) => {
   try { localStorage.setItem(DEFAULT_LAYER_SIZE_KEY, JSON.stringify(s)); } catch { /* ignore */ }
 };
 
-export type MainView = 'generate' | 'canvas' | 'collections' | 'browser' | 'comfy';
+export type MainView = 'generate' | 'canvas' | 'collections' | 'browser' | 'comfy' | 'studio';
 const loadMainView = (): MainView => {
   try {
     const v = localStorage.getItem(MAIN_VIEW_KEY);
-    if (v === 'generate' || v === 'canvas' || v === 'collections' || v === 'browser' || v === 'comfy') return v;
+    if (v === 'generate' || v === 'canvas' || v === 'collections' || v === 'browser' || v === 'comfy' || v === 'studio') return v;
     // Migrate from the old canvasViewMode key (infinite|stripped).
     const legacy = localStorage.getItem(LEGACY_VIEW_MODE_KEY);
     if (legacy === 'infinite') return 'canvas';
     if (legacy === 'stripped') return 'generate';
+    // Nothing stored: a phone opens in Studio. The generate view is a compositor with side
+    // panels and a canvas — a desktop tool. Studio is the one built for a 412px screen, so that
+    // is where a first visit from a phone lands. A stored choice always wins over this.
+    if (typeof window !== 'undefined' && !window.matchMedia('(min-width: 768px)').matches) return 'studio';
     return 'generate';
   } catch {
     return 'generate';
