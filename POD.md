@@ -2,6 +2,19 @@
 
 | | |
 |---|---|
+| Pod id | `mik3v4g9kk3er8` (`ygo-comfy-a100`, created 2026-09-20) |
+| GPU | NVIDIA A100 80GB PCIe, RunPod **secure** cloud, $1.59/h |
+| Endpoint | `http://216.81.151.3:10695`, fronted by Traefik at `https://comfyui-ygo.blueoceanswim.com/` |
+| Volume | 100 GB on `/workspace`; the manifest's 58 files verified 2026-09-20 |
+| Auth | user `ygo`, password = `COMFY_LOCAL_TOKEN` (reused from the previous pod) |
+
+Every earlier pod below is terminated. The rest of this file — the GraphQL for stop / resume /
+terminate / recreate — still applies; substitute the pod id above.
+
+## Older: RTX 5090 pod (terminated)
+
+| | |
+|---|---|
 | Pod id | `rq6z6e1djo9sbn` |
 | GPU | NVIDIA GeForce RTX 5090 (32 GB), RunPod **community** cloud, location SK |
 | Price | $0.69/h while running; volume storage is billed while the pod exists (also when stopped) |
