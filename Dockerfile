@@ -66,6 +66,15 @@ RUN pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 \
     && python -c "import torch, sys; print('torch', torch.__version__, 'cuda', torch.version.cuda); sys.exit(0 if torch.version.cuda and torch.version.cuda.startswith('12.8') else 1)" \
     && python -c "import onnxruntime as ort, sys; p=ort.get_available_providers(); print('ort', ort.__version__, p); sys.exit(0 if 'CUDAExecutionProvider' in p else 1)"
 
+# ---- ImageLabCore: the API the front end talks to ---------------------------------
+# This is what answers /imagelab/hashes, /imagelab/downloads and /imagelab/favorites. Without it
+# the app cannot ask a server what models it has, and the model browser shows nothing — which is
+# what the 404s on those routes were. Pinned like every other pack above.
+#
+# It is on GitHub rather than the Gitea the rest of this work lives on, because this Dockerfile is
+# built by GitHub Actions and that Gitea answers on a LAN address; a runner cannot reach it.
+RUN install-node https://github.com/angelmankel/ImageLabCore e95e3984cae97440ad2f3a9136986246fe7e8af2 ImageLabCore
+
 # ---- Runtime files --------------------------------------------------------------
 COPY models.txt download-models.sh start.sh nginx.conf.template live.py /opt/ygo/
 COPY app /opt/ygo/app
